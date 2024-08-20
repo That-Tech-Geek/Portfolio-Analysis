@@ -1,4 +1,4 @@
-steramlit
+streamlit
 yfinance
 pandas
 datetime
