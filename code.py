@@ -53,10 +53,10 @@ def dupont_analysis(financials, balance_sheet):
     }
 
 # Function for DCF Analysis
-def dcf_analysis(financials, balance_sheet, discount_rate=0.1, terminal_growth_rate=0.02):
+def dcf_analysis(financials, balance_sheet, ticker, discount_rate=0.1, terminal_growth_rate=0.02):
     # Use default value 0 if data is missing
     free_cash_flow = financials.loc['Free Cash Flow'].values if 'Free Cash Flow' in financials.index else [0]
-    if len(free_cash_flow) < 0:
+    if len(free_cash_flow) < 2:
         st.error("Not enough Free Cash Flow data to perform DCF analysis.")
         return None
 
@@ -115,7 +115,7 @@ def main():
             
             # DCF Analysis
             st.header(f'DCF Analysis for {ticker}')
-            dcf_results = dcf_analysis(financials_editable, balance_sheet_editable)
+            dcf_results = dcf_analysis(financials_editable, balance_sheet_editable, ticker)
             if dcf_results:
                 for key, value in dcf_results.items():
                     st.write(f"{key}: {value:,.2f}" if isinstance(value, (int, float)) else f"{key}: {value}")
