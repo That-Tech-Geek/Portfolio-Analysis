@@ -12,12 +12,16 @@ def get_financial_data(ticker):
     balance_sheet = stock.balance_sheet.T
     cashflow_statement = stock.cashflow.T
 
+    # Fetch historical data for more years
+    hist = stock.history(period='10y')  # Get 10 years of historical data
+    annual_cashflows = stock.cashflow.T.resample('A').sum()  # Aggregate cashflows annually
+    
     # Replace missing values with default values
     financials = financials.fillna(0)
     balance_sheet = balance_sheet.fillna(0)
     cashflow_statement = cashflow_statement.fillna(0)
     
-    return financials, balance_sheet, cashflow_statement
+    return financials, balance_sheet, cashflow_statement, annual_cashflows
 
 # Function to get additional data if missing
 def fetch_additional_data(ticker):
@@ -53,17 +57,26 @@ def dupont_analysis(financials, balance_sheet):
     }
 
 # Function for DCF Analysis
-def dcf_analysis(financials, balance_sheet, ticker, discount_rate=0.1, terminal_growth_rate=0.02):
+def dcf_analysis(financials, balance_sheet, ticker, annual_cashflows, discount_rate=0.1, terminal_growth_rate=0.02):
     # Use default value 0 if data is missing
-    free_cash_flow = financials.loc['Free Cash Flow'].values if 'Free Cash Flow' in financials.index else [0]
-    if len(free_cash_flow) < 0:
+    free_cash_flow = annual_cashflows['Free Cash Flow'].values if 'Free Cash Flow' in annual_cashflows.columns else [0]
+    
+    if len(free_cash_flow) < 2:
         st.error("Not enough Free Cash Flow data to perform DCF analysis.")
         return None
 
-    growth_rate = np.mean(np.diff(free_cash_flow) / free_cash_flow[:-1]) if len(free_cash_flow) > 1 else 0
-
+    # Calculate growth rate from extended historical data
+    try:
+        growth_rate = np.mean(np.diff(free_cash_flow) / free_cash_flow[:-1])
+    except Exception as e:
+        st.error(f"Error calculating growth rate: {e}")
+        growth_rate = 0
+    
     # Project future cash flows
     future_cash_flows = [free_cash_flow[-1] * ((1 + growth_rate) ** (i + 1)) for i in range(5)]
+    
+    # Debug: Show future cash flows
+    st.write("Future Cash Flows:", future_cash_flows)
     
     # Terminal value
     terminal_value = future_cash_flows[-1] * (1 + terminal_growth_rate) / (discount_rate - terminal_growth_rate)
@@ -77,6 +90,10 @@ def dcf_analysis(financials, balance_sheet, ticker, discount_rate=0.1, terminal_
     
     # Compare with current market capitalization
     market_cap = balance_sheet.loc['Market Cap'].values[0] if 'Market Cap' in balance_sheet.index else fetch_additional_data(ticker)['Market Cap']
+    
+    # Debug: Show DCF calculation details
+    st.write(f"Discounted Cash Flows: {discounted_cash_flows}")
+    st.write(f"Discounted Terminal Value: {discounted_terminal_value}")
     
     return {
         'DCF Value': dcf_value,
@@ -93,7 +110,7 @@ def main():
     if ticker:
         try:
             # Fetch financial data
-            financials, balance_sheet, cashflow_statement = get_financial_data(ticker)
+            financials, balance_sheet, cashflow_statement, annual_cashflows = get_financial_data(ticker)
             
             # Make datasets editable
             st.header(f'Financial Statements for {ticker}')
@@ -115,7 +132,7 @@ def main():
             
             # DCF Analysis
             st.header(f'DCF Analysis for {ticker}')
-            dcf_results = dcf_analysis(financials_editable, balance_sheet_editable, ticker)
+            dcf_results = dcf_analysis(financials_editable, balance_sheet_editable, ticker, annual_cashflows)
             if dcf_results:
                 for key, value in dcf_results.items():
                     st.write(f"{key}: {value:,.2f}" if isinstance(value, (int, float)) else f"{key}: {value}")
