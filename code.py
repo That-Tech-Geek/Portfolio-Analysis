@@ -85,9 +85,10 @@ def dcf_analysis(financials, balance_sheet, ticker, annual_cashflows, discount_r
 
 # Streamlit app
 def main():
-    st.title('Investment Analysis using DCF')
+    st.title('Investment Analysis: Analyze everything you need to know about a company, right here!')
+    st.write("This is built for educational purposes and is not liable to any losses and/or damages to the user.")
     
-    ticker = st.text_input('Enter the stock ticker symbol:', 'AAPL').upper()
+    ticker = st.text_input('Enter the stock ticker symbol:', 'RELIANCE.NS').upper()
     
     if ticker:
         try:
