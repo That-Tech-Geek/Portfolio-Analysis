@@ -34,28 +34,44 @@ def fetch_additional_data(ticker):
     }
 
 # Function for DuPont Analysis
+# Function for DuPont Analysis
 def dupont_analysis(financials, balance_sheet):
-    # Retrieve values from the dataframes, replacing missing data with default values
-    income_statement = financials.loc['Net Income'].values[0] if 'Net Income' in financials.index else 0
-    revenue = financials.loc['Total Revenue'].values[0] if 'Total Revenue' in financials.index else 0
-    total_assets = balance_sheet.loc['Total Assets'].values[0] if 'Total Assets' in balance_sheet.index else 0
-    total_equity = balance_sheet.loc['Total Stockholder Equity'].values[0] if 'Total Stockholder Equity' in balance_sheet.index else 0
-    
-    # Avoid division by zero
-    net_profit_margin = income_statement / revenue if revenue != 0 else 0
-    asset_turnover = revenue / total_assets if total_assets != 0 else 0
-    equity_multiplier = total_assets / total_equity if total_equity != 0 else 0
-    
-    # Return on Equity (ROE)
-    roe = net_profit_margin * asset_turnover * equity_multiplier
-    
-    return {
-        'Net Profit Margin': net_profit_margin,
-        'Asset Turnover': asset_turnover,
-        'Equity Multiplier': equity_multiplier,
-        'ROE': roe
-    }
+    try:
+        # Retrieve values from the dataframes, replacing missing data with default values
+        income_statement = financials.loc['Net Income'].values[0] if 'Net Income' in financials.index and not financials.loc['Net Income'].empty else 0
+        revenue = financials.loc['Total Revenue'].values[0] if 'Total Revenue' in financials.index and not financials.loc['Total Revenue'].empty else 0
+        total_assets = balance_sheet.loc['Total Assets'].values[0] if 'Total Assets' in balance_sheet.index and not balance_sheet.loc['Total Assets'].empty else 0
+        total_equity = balance_sheet.loc['Total Stockholder Equity'].values[0] if 'Total Stockholder Equity' in balance_sheet.index and not balance_sheet.loc['Total Stockholder Equity'].empty else 0
 
+        # Print values for debugging
+        st.write(f"Income Statement: {income_statement}")
+        st.write(f"Revenue: {revenue}")
+        st.write(f"Total Assets: {total_assets}")
+        st.write(f"Total Equity: {total_equity}")
+
+        # Avoid division by zero
+        net_profit_margin = income_statement / revenue if revenue != 0 else 0
+        asset_turnover = revenue / total_assets if total_assets != 0 else 0
+        equity_multiplier = total_assets / total_equity if total_equity != 0 else 0
+
+        # Return on Equity (ROE)
+        roe = net_profit_margin * asset_turnover * equity_multiplier
+        
+        return {
+            'Net Profit Margin': net_profit_margin,
+            'Asset Turnover': asset_turnover,
+            'Equity Multiplier': equity_multiplier,
+            'ROE': roe
+        }
+    
+    except Exception as e:
+        st.error(f"Error in DuPont Analysis: {e}")
+        return {
+            'Net Profit Margin': 0,
+            'Asset Turnover': 0,
+            'Equity Multiplier': 0,
+            'ROE': 0
+        }
 # Function for DCF Analysis
 def dcf_analysis(financials, balance_sheet, ticker, annual_cashflows, discount_rate=0.1, terminal_growth_rate=0.02):
     # Use default value 0 if data is missing
