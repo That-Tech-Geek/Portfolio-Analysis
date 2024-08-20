@@ -1,81 +1,95 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-from datetime import datetime
 import numpy as np
+from scipy.optimize import minimize
 
-# Function to calculate DCF
-def calculate_dcf(cash_flow, growth_rate, discount_rate, terminal_growth_rate, years=5):
-    dcf_value = 0
-    for year in range(1, years + 1):
-        dcf_value += cash_flow * (1 + growth_rate) ** year / (1 + discount_rate) ** year
-    terminal_value = (cash_flow * (1 + growth_rate) ** years * (1 + terminal_growth_rate)) / (discount_rate - terminal_growth_rate)
-    dcf_value += terminal_value / (1 + discount_rate) ** years
-    return dcf_value
+# Function to get financial data
+def get_financial_data(ticker):
+    stock = yf.Ticker(ticker)
+    financials = stock.financials.T
+    balance_sheet = stock.balance_sheet.T
+    return financials, balance_sheet
 
-# Function to calculate ROE using DuPont Analysis
-def calculate_roe(income_statement, balance_sheet):
-    profit_margin = income_statement['Net Income'] / income_statement['Revenue']
-    asset_turnover = income_statement['Revenue'] / balance_sheet['Total Assets']
-    equity_multiplier = balance_sheet['Total Assets'] / balance_sheet['Total Shareholder Equity']
-    roe = profit_margin * asset_turnover * equity_multiplier
-    return roe
+# Function for DuPont Analysis
+def dupont_analysis(financials, balance_sheet):
+    # DuPont formula: ROE = (Net Profit Margin) * (Asset Turnover) * (Equity Multiplier)
+    income_statement = financials.loc['Net Income'].values[0]
+    revenue = financials.loc['Total Revenue'].values[0]
+    total_assets = balance_sheet.loc['Total Assets'].values[0]
+    total_equity = balance_sheet.loc['Total Stockholder Equity'].values[0]
+    
+    # Components
+    net_profit_margin = income_statement / revenue
+    asset_turnover = revenue / total_assets
+    equity_multiplier = total_assets / total_equity
+    
+    # Return on Equity (ROE)
+    roe = net_profit_margin * asset_turnover * equity_multiplier
+    
+    return {
+        'Net Profit Margin': net_profit_margin,
+        'Asset Turnover': asset_turnover,
+        'Equity Multiplier': equity_multiplier,
+        'ROE': roe
+    }
 
-# Streamlit App
-st.title('Investment Analysis using DuPont and DCF')
+# Function for DCF Analysis
+def dcf_analysis(financials, balance_sheet, discount_rate=0.1, terminal_growth_rate=0.02):
+    if 'Free Cash Flow' not in financials.index:
+        st.error("Free Cash Flow data is missing.")
+        return None
+    
+    free_cash_flow = financials.loc['Free Cash Flow'].values
+    growth_rate = (free_cash_flow[1:] / free_cash_flow[:-1] - 1).mean()
 
-# Get user input for the ticker
-ticker = st.text_input('Enter the stock ticker:', 'AAPL')
+    # Project future cash flows
+    future_cash_flows = []
+    for i in range(5):
+        future_cash_flows.append(free_cash_flow[-1] * ((1 + growth_rate) ** (i + 1)))
+    
+    # Terminal value
+    terminal_value = future_cash_flows[-1] * (1 + terminal_growth_rate) / (discount_rate - terminal_growth_rate)
+    
+    # Discount the future cash flows to present value
+    discounted_cash_flows = [cf / (1 + discount_rate) ** (i + 1) for i, cf in enumerate(future_cash_flows)]
+    discounted_terminal_value = terminal_value / (1 + discount_rate) ** len(future_cash_flows)
+    
+    # Sum of discounted cash flows and terminal value
+    dcf_value = sum(discounted_cash_flows) + discounted_terminal_value
+    
+    # Compare with current market capitalization
+    market_cap = balance_sheet.loc['Market Cap'].values[0] if 'Market Cap' in balance_sheet.index else None
+    
+    return {
+        'DCF Value': dcf_value,
+        'Market Cap': market_cap,
+        'Undervalued/Overvalued': 'Undervalued' if market_cap and dcf_value > market_cap else 'Overvalued'
+    }
 
-if ticker:
-    # Fetch data
-    company = yf.Ticker(ticker)
+# Streamlit app
+def main():
+    st.title('Investment Analysis using DuPont and DCF')
     
-    # Get financials
-    income_statement = company.financials.T
-    balance_sheet = company.balance_sheet.T
-    cash_flow_statement = company.cashflow.T
+    ticker = st.text_input('Enter the stock ticker symbol:', 'AAPL').upper()
     
-    # Get share price data
-    historical_prices = company.history(period="5y")
-    
-    # Display Financial Statements
-    st.header(f"{ticker} Financial Statements")
-    
-    st.subheader("Income Statement")
-    st.dataframe(income_statement)
-    
-    st.subheader("Balance Sheet")
-    st.dataframe(balance_sheet)
-    
-    st.subheader("Cash Flow Statement")
-    st.dataframe(cash_flow_statement)
-    
-    # DuPont Analysis
-    st.header('DuPont Analysis')
-    roe = calculate_roe(income_statement, balance_sheet)
-    st.write(f'Return on Equity (ROE): {roe:.2%}')
-    
-    # DCF Analysis
-    st.header('Discounted Cash Flow (DCF) Analysis')
-    
-    # Assume some basic parameters for DCF
-    last_year_cash_flow = cash_flow_statement['Total Cash From Operating Activities'].iloc[0]
-    growth_rate = st.slider('Growth Rate (CAGR)', 0.0, 0.2, 0.05)
-    discount_rate = st.slider('Discount Rate', 0.0, 0.2, 0.1)
-    terminal_growth_rate = st.slider('Terminal Growth Rate', 0.0, 0.1, 0.02)
-    
-    dcf_value = calculate_dcf(last_year_cash_flow, growth_rate, discount_rate, terminal_growth_rate)
-    
-    st.write(f"DCF Value: ${dcf_value:,.2f}")
-    
-    # Current Share Price
-    current_price = historical_prices['Close'].iloc[-1]
-    st.write(f"Current Share Price: ${current_price:,.2f}")
-    
-    # Decision based on DCF
-    if dcf_value > current_price:
-        st.success("The stock appears to be undervalued. It might be worth investing in.")
-    else:
-        st.warning("The stock appears to be overvalued. Caution is advised before investing.")
+    if ticker:
+        try:
+            financials, balance_sheet = get_financial_data(ticker)
+            
+            st.header(f'DuPont Analysis for {ticker}')
+            dupont_results = dupont_analysis(financials, balance_sheet)
+            for key, value in dupont_results.items():
+                st.write(f"{key}: {value:.2f}")
+            
+            st.header(f'DCF Analysis for {ticker}')
+            dcf_results = dcf_analysis(financials, balance_sheet)
+            if dcf_results:
+                for key, value in dcf_results.items():
+                    st.write(f"{key}: {value:,.2f}" if isinstance(value, (int, float)) else f"{key}: {value}")
+        
+        except Exception as e:
+            st.error(f"An error occurred: {e}")
 
+if __name__ == "__main__":
+    main()
