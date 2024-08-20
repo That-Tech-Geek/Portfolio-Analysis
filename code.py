@@ -35,7 +35,7 @@ def fetch_additional_data(ticker):
 
 # Function for DuPont Analysis
 def dupont_analysis(financials, balance_sheet):
-    # Use default value 0 if data is missing
+    # Retrieve values from the dataframes, replacing missing data with default values
     income_statement = financials.loc['Net Income'].values[0] if 'Net Income' in financials.index else 0
     revenue = financials.loc['Total Revenue'].values[0] if 'Total Revenue' in financials.index else 0
     total_assets = balance_sheet.loc['Total Assets'].values[0] if 'Total Assets' in balance_sheet.index else 0
