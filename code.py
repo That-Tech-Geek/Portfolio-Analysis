@@ -84,4 +84,4 @@ if ticker:
         else:
             st.warning("The stock appears to be overvalued. Caution is advised before investing.")
     except KeyError as e:
-        st.error(f"Faile
+        st.error(f"Failed to retrieve necessary financial data for DCF calculation: {e}")
