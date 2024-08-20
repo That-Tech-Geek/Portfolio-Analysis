@@ -1,0 +1,5 @@
+steramlit
+yfinance
+pandas
+datetime
+numpy
