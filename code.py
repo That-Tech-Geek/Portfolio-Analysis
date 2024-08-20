@@ -1,7 +1,5 @@
 import streamlit as st
 import yfinance as yf
-import pandas as pd
-from datetime import datetime
 import numpy as np
 
 # Function to calculate DCF
@@ -14,10 +12,20 @@ def calculate_dcf(cash_flow, growth_rate, discount_rate, terminal_growth_rate, y
     return dcf_value
 
 # Function to calculate ROE using DuPont Analysis
-def calculate_roe(income_statement, balance_sheet):
-    profit_margin = income_statement.loc['Net Income'].iloc[0] / income_statement.loc['Total Revenue'].iloc[0]
-    asset_turnover = income_statement.loc['Total Revenue'].iloc[0] / balance_sheet.loc['Total Assets'].iloc[0]
-    equity_multiplier = balance_sheet.loc['Total Assets'].iloc[0] / balance_sheet.loc['Total Stockholder Equity'].iloc[0]
+def calculate_roe(ticker):
+    company = yf.Ticker(ticker)
+    
+    # Extract relevant data directly using yfinance methods
+    net_income = company.financials.loc['Net Income'].iloc[0]
+    revenue = company.financials.loc['Total Revenue'].iloc[0]
+    total_assets = company.balance_sheet.loc['Total Assets'].iloc[0]
+    total_equity = company.balance_sheet.loc['Total Stockholder Equity'].iloc[0]
+    
+    # DuPont components
+    profit_margin = net_income / revenue
+    asset_turnover = revenue / total_assets
+    equity_multiplier = total_assets / total_equity
+    
     roe = profit_margin * asset_turnover * equity_multiplier
     return roe
 
@@ -28,12 +36,9 @@ st.title('Investment Analysis using DuPont and DCF')
 ticker = st.text_input('Enter the stock ticker:', 'AAPL')
 
 if ticker:
-    # Fetch data
     company = yf.Ticker(ticker)
     
     # Get financials
-    income_statement = company.financials
-    balance_sheet = company.balance_sheet
     cash_flow_statement = company.cashflow
     
     # Get share price data
@@ -42,18 +47,12 @@ if ticker:
     # Display Financial Statements
     st.header(f"{ticker} Financial Statements")
     
-    st.subheader("Income Statement")
-    st.dataframe(income_statement)
-    
-    st.subheader("Balance Sheet")
-    st.dataframe(balance_sheet)
-    
     st.subheader("Cash Flow Statement")
     st.dataframe(cash_flow_statement)
     
     # DuPont Analysis
     st.header('DuPont Analysis')
-    roe = calculate_roe(income_statement, balance_sheet)
+    roe = calculate_roe(ticker)
     st.write(f'Return on Equity (ROE): {roe:.2%}')
     
     # DCF Analysis
