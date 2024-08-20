@@ -76,30 +76,29 @@ def main():
         try:
             financials, balance_sheet, cashflow_statement = get_financial_data(ticker)
             
+            # Display and edit Income Statement
             st.header(f'Financial Statements for {ticker}')
-            
-            # Display Income Statement
             st.subheader('Income Statement')
-            st.dataframe(financials.fillna(0))  # Replace NaN values with 0
+            financials_editable = st.data_editor(financials.fillna(0), use_container_width=True)
             
-            # Display Balance Sheet
+            # Display and edit Balance Sheet
             st.subheader('Balance Sheet')
-            st.dataframe(balance_sheet.fillna(0))  # Replace NaN values with 0
+            balance_sheet_editable = st.data_editor(balance_sheet.fillna(0), use_container_width=True)
             
-            # Display Cash Flow Statement
+            # Display and edit Cash Flow Statement
             st.subheader('Cash Flow Statement')
-            st.dataframe(cashflow_statement.fillna(0))  # Replace NaN values with 0
+            cashflow_statement_editable = st.data_editor(cashflow_statement.fillna(0), use_container_width=True)
             
             # DuPont Analysis
             st.header(f'DuPont Analysis for {ticker}')
-            dupont_results = dupont_analysis(financials, balance_sheet)
+            dupont_results = dupont_analysis(financials_editable, balance_sheet_editable)
             if dupont_results:
                 for key, value in dupont_results.items():
                     st.write(f"{key}: {value:.2f}")
             
             # DCF Analysis
             st.header(f'DCF Analysis for {ticker}')
-            dcf_results = dcf_analysis(financials, balance_sheet)
+            dcf_results = dcf_analysis(financials_editable, balance_sheet_editable)
             if dcf_results:
                 for key, value in dcf_results.items():
                     st.write(f"{key}: {value:,.2f}" if isinstance(value, (int, float)) else f"{key}: {value}")
