@@ -65,9 +65,12 @@ def dcf_analysis(financials, balance_sheet, ticker, annual_cashflows, discount_r
         st.error("Not enough Free Cash Flow data to perform DCF analysis.")
         return None
 
-    # Calculate growth rate from extended historical data
+    # Calculate growth rate with error handling
     try:
-        growth_rate = np.mean(np.diff(free_cash_flow) / free_cash_flow[:-1])
+        if len(free_cash_flow) > 1 and np.all(free_cash_flow[:-1] != 0):
+            growth_rate = np.mean(np.diff(free_cash_flow) / free_cash_flow[:-1])
+        else:
+            growth_rate = 0
     except Exception as e:
         st.error(f"Error calculating growth rate: {e}")
         growth_rate = 0
