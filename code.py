@@ -1,5 +1,7 @@
 import streamlit as st
 import yfinance as yf
+import pandas as pd
+from datetime import datetime
 import numpy as np
 
 # Function to calculate DCF
@@ -12,26 +14,10 @@ def calculate_dcf(cash_flow, growth_rate, discount_rate, terminal_growth_rate, y
     return dcf_value
 
 # Function to calculate ROE using DuPont Analysis
-def calculate_roe(company):
-    # Directly access relevant data
-    income_statement = company.financials
-    balance_sheet = company.balance_sheet
-    
-    # Check and extract relevant data
-    net_income = income_statement.loc['Net Income'].iloc[0] if 'Net Income' in income_statement.index else None
-    revenue = income_statement.loc['Total Revenue'].iloc[0] if 'Total Revenue' in income_statement.index else None
-    total_assets = balance_sheet.loc['Total Assets'].iloc[0] if 'Total Assets' in balance_sheet.index else None
-    total_equity = balance_sheet.loc['Total Stockholder Equity'].iloc[0] if 'Total Stockholder Equity' in balance_sheet.index else None
-    
-    if None in [net_income, revenue, total_assets, total_equity]:
-        st.error("Missing essential financial data for ROE calculation.")
-        return None
-    
-    # DuPont components
-    profit_margin = net_income / revenue
-    asset_turnover = revenue / total_assets
-    equity_multiplier = total_assets / total_equity
-    
+def calculate_roe(income_statement, balance_sheet):
+    profit_margin = income_statement['Net Income'] / income_statement['Revenue']
+    asset_turnover = income_statement['Revenue'] / balance_sheet['Total Assets']
+    equity_multiplier = balance_sheet['Total Assets'] / balance_sheet['Total Shareholder Equity']
     roe = profit_margin * asset_turnover * equity_multiplier
     return roe
 
@@ -42,12 +28,13 @@ st.title('Investment Analysis using DuPont and DCF')
 ticker = st.text_input('Enter the stock ticker:', 'AAPL')
 
 if ticker:
+    # Fetch data
     company = yf.Ticker(ticker)
     
     # Get financials
-    cash_flow_statement = company.cashflow
-    income_statement = company.financials
-    balance_sheet = company.balance_sheet
+    income_statement = company.financials.T
+    balance_sheet = company.balance_sheet.T
+    cash_flow_statement = company.cashflow.T
     
     # Get share price data
     historical_prices = company.history(period="5y")
@@ -55,37 +42,40 @@ if ticker:
     # Display Financial Statements
     st.header(f"{ticker} Financial Statements")
     
+    st.subheader("Income Statement")
+    st.dataframe(income_statement)
+    
+    st.subheader("Balance Sheet")
+    st.dataframe(balance_sheet)
+    
     st.subheader("Cash Flow Statement")
     st.dataframe(cash_flow_statement)
     
     # DuPont Analysis
     st.header('DuPont Analysis')
-    roe = calculate_roe(company)
-    if roe:
-        st.write(f'Return on Equity (ROE): {roe:.2%}')
+    roe = calculate_roe(income_statement, balance_sheet)
+    st.write(f'Return on Equity (ROE): {roe:.2%}')
     
     # DCF Analysis
     st.header('Discounted Cash Flow (DCF) Analysis')
     
     # Assume some basic parameters for DCF
-    last_year_cash_flow = cash_flow_statement.loc['Total Cash From Operating Activities'].iloc[0] if 'Total Cash From Operating Activities' in cash_flow_statement.index else None
-    if last_year_cash_flow is None:
-        st.error("Missing 'Total Cash From Operating Activities' data.")
-    
+    last_year_cash_flow = cash_flow_statement['Total Cash From Operating Activities'].iloc[0]
     growth_rate = st.slider('Growth Rate (CAGR)', 0.0, 0.2, 0.05)
     discount_rate = st.slider('Discount Rate', 0.0, 0.2, 0.1)
     terminal_growth_rate = st.slider('Terminal Growth Rate', 0.0, 0.1, 0.02)
     
-    if last_year_cash_flow:
-        dcf_value = calculate_dcf(last_year_cash_flow, growth_rate, discount_rate, terminal_growth_rate)
-        st.write(f"DCF Value: ${dcf_value:,.2f}")
+    dcf_value = calculate_dcf(last_year_cash_flow, growth_rate, discount_rate, terminal_growth_rate)
     
-        # Current Share Price
-        current_price = historical_prices['Close'].iloc[-1]
-        st.write(f"Current Share Price: ${current_price:,.2f}")
-        
-        # Decision based on DCF
-        if dcf_value > current_price:
-            st.success("The stock appears to be undervalued. It might be worth investing in.")
-        else:
-            st.warning("The stock appears to be overvalued. Caution is advised before investing.")
+    st.write(f"DCF Value: ${dcf_value:,.2f}")
+    
+    # Current Share Price
+    current_price = historical_prices['Close'].iloc[-1]
+    st.write(f"Current Share Price: ${current_price:,.2f}")
+    
+    # Decision based on DCF
+    if dcf_value > current_price:
+        st.success("The stock appears to be undervalued. It might be worth investing in.")
+    else:
+        st.warning("The stock appears to be overvalued. Caution is advised before investing.")
+
