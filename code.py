@@ -17,10 +17,15 @@ def calculate_roe(company):
     income_statement = company.financials
     balance_sheet = company.balance_sheet
     
-    net_income = income_statement.loc['Net Income'].iloc[0]
-    revenue = income_statement.loc['Total Revenue'].iloc[0]
-    total_assets = balance_sheet.loc['Total Assets'].iloc[0]
-    total_equity = balance_sheet.loc['Total Stockholder Equity'].iloc[0]
+    # Check and extract relevant data
+    net_income = income_statement.loc['Net Income'].iloc[0] if 'Net Income' in income_statement.index else None
+    revenue = income_statement.loc['Total Revenue'].iloc[0] if 'Total Revenue' in income_statement.index else None
+    total_assets = balance_sheet.loc['Total Assets'].iloc[0] if 'Total Assets' in balance_sheet.index else None
+    total_equity = balance_sheet.loc['Total Stockholder Equity'].iloc[0] if 'Total Stockholder Equity' in balance_sheet.index else None
+    
+    if None in [net_income, revenue, total_assets, total_equity]:
+        st.error("Missing essential financial data for ROE calculation.")
+        return None
     
     # DuPont components
     profit_margin = net_income / revenue
@@ -55,22 +60,23 @@ if ticker:
     
     # DuPont Analysis
     st.header('DuPont Analysis')
-    try:
-        roe = calculate_roe(company)
+    roe = calculate_roe(company)
+    if roe:
         st.write(f'Return on Equity (ROE): {roe:.2%}')
-    except KeyError as e:
-        st.error(f"Failed to retrieve necessary financial data for ROE calculation: {e}")
     
     # DCF Analysis
     st.header('Discounted Cash Flow (DCF) Analysis')
     
     # Assume some basic parameters for DCF
-    try:
-        last_year_cash_flow = cash_flow_statement.loc['Total Cash From Operating Activities'].iloc[0]
-        growth_rate = st.slider('Growth Rate (CAGR)', 0.0, 0.2, 0.05)
-        discount_rate = st.slider('Discount Rate', 0.0, 0.2, 0.1)
-        terminal_growth_rate = st.slider('Terminal Growth Rate', 0.0, 0.1, 0.02)
+    last_year_cash_flow = cash_flow_statement.loc['Total Cash From Operating Activities'].iloc[0] if 'Total Cash From Operating Activities' in cash_flow_statement.index else None
+    if last_year_cash_flow is None:
+        st.error("Missing 'Total Cash From Operating Activities' data.")
     
+    growth_rate = st.slider('Growth Rate (CAGR)', 0.0, 0.2, 0.05)
+    discount_rate = st.slider('Discount Rate', 0.0, 0.2, 0.1)
+    terminal_growth_rate = st.slider('Terminal Growth Rate', 0.0, 0.1, 0.02)
+    
+    if last_year_cash_flow:
         dcf_value = calculate_dcf(last_year_cash_flow, growth_rate, discount_rate, terminal_growth_rate)
         st.write(f"DCF Value: ${dcf_value:,.2f}")
     
@@ -83,5 +89,3 @@ if ticker:
             st.success("The stock appears to be undervalued. It might be worth investing in.")
         else:
             st.warning("The stock appears to be overvalued. Caution is advised before investing.")
-    except KeyError as e:
-        st.error(f"Failed to retrieve necessary financial data for DCF calculation: {e}")
