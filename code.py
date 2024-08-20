@@ -9,7 +9,8 @@ def get_financial_data(ticker):
     stock = yf.Ticker(ticker)
     financials = stock.financials.T
     balance_sheet = stock.balance_sheet.T
-    return financials, balance_sheet
+    cashflow_statement = stock.cashflow.T
+    return financials, balance_sheet, cashflow_statement
 
 # Function for DuPont Analysis
 def dupont_analysis(financials, balance_sheet):
@@ -75,13 +76,29 @@ def main():
     
     if ticker:
         try:
-            financials, balance_sheet = get_financial_data(ticker)
+            financials, balance_sheet, cashflow_statement = get_financial_data(ticker)
             
+            st.header(f'Financial Statements for {ticker}')
+            
+            # Display Income Statement
+            st.subheader('Income Statement')
+            st.dataframe(financials)
+            
+            # Display Balance Sheet
+            st.subheader('Balance Sheet')
+            st.dataframe(balance_sheet)
+            
+            # Display Cash Flow Statement
+            st.subheader('Cash Flow Statement')
+            st.dataframe(cashflow_statement)
+            
+            # DuPont Analysis
             st.header(f'DuPont Analysis for {ticker}')
             dupont_results = dupont_analysis(financials, balance_sheet)
             for key, value in dupont_results.items():
                 st.write(f"{key}: {value:.2f}")
             
+            # DCF Analysis
             st.header(f'DCF Analysis for {ticker}')
             dcf_results = dcf_analysis(financials, balance_sheet)
             if dcf_results:
