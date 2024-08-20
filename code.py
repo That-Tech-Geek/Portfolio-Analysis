@@ -2,7 +2,6 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
-from scipy.optimize import minimize
 
 # Function to get financial data
 def get_financial_data(ticker):
@@ -14,14 +13,18 @@ def get_financial_data(ticker):
 
 # Function for DuPont Analysis
 def dupont_analysis(financials, balance_sheet):
-    # DuPont formula: ROE = (Net Profit Margin) * (Asset Turnover) * (Equity Multiplier)
-    income_statement = financials.loc['Net Income'].values[0]
-    revenue = financials.loc['Total Revenue'].values[0]
-    total_assets = balance_sheet.loc['Total Assets'].values[0]
-    total_equity = balance_sheet.loc['Total Stockholder Equity'].values[0]
+    try:
+        # Extract values from financials and balance sheet
+        net_income = financials.loc['Net Income'].values[0]
+        revenue = financials.loc['Total Revenue'].values[0]
+        total_assets = balance_sheet.loc['Total Assets'].values[0]
+        total_equity = balance_sheet.loc['Total Stockholder Equity'].values[0]
+    except KeyError as e:
+        st.error(f"Missing data: {e}")
+        return None
     
     # Components
-    net_profit_margin = income_statement / revenue
+    net_profit_margin = net_income / revenue
     asset_turnover = revenue / total_assets
     equity_multiplier = total_assets / total_equity
     
@@ -95,8 +98,9 @@ def main():
             # DuPont Analysis
             st.header(f'DuPont Analysis for {ticker}')
             dupont_results = dupont_analysis(financials, balance_sheet)
-            for key, value in dupont_results.items():
-                st.write(f"{key}: {value:.2f}")
+            if dupont_results:
+                for key, value in dupont_results.items():
+                    st.write(f"{key}: {value:.2f}")
             
             # DCF Analysis
             st.header(f'DCF Analysis for {ticker}')
