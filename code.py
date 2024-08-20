@@ -15,9 +15,9 @@ def calculate_dcf(cash_flow, growth_rate, discount_rate, terminal_growth_rate, y
 
 # Function to calculate ROE using DuPont Analysis
 def calculate_roe(income_statement, balance_sheet):
-    profit_margin = income_statement['Net Income'] / income_statement['Revenue']
-    asset_turnover = income_statement['Revenue'] / balance_sheet['Total Assets']
-    equity_multiplier = balance_sheet['Total Assets'] / balance_sheet['Total Shareholder Equity']
+    profit_margin = income_statement.loc['Net Income'].iloc[0] / income_statement.loc['Total Revenue'].iloc[0]
+    asset_turnover = income_statement.loc['Total Revenue'].iloc[0] / balance_sheet.loc['Total Assets'].iloc[0]
+    equity_multiplier = balance_sheet.loc['Total Assets'].iloc[0] / balance_sheet.loc['Total Stockholder Equity'].iloc[0]
     roe = profit_margin * asset_turnover * equity_multiplier
     return roe
 
@@ -32,9 +32,9 @@ if ticker:
     company = yf.Ticker(ticker)
     
     # Get financials
-    income_statement = company.financials.T
-    balance_sheet = company.balance_sheet.T
-    cash_flow_statement = company.cashflow.T
+    income_statement = company.financials
+    balance_sheet = company.balance_sheet
+    cash_flow_statement = company.cashflow
     
     # Get share price data
     historical_prices = company.history(period="5y")
@@ -60,7 +60,7 @@ if ticker:
     st.header('Discounted Cash Flow (DCF) Analysis')
     
     # Assume some basic parameters for DCF
-    last_year_cash_flow = cash_flow_statement['Total Cash From Operating Activities'].iloc[0]
+    last_year_cash_flow = cash_flow_statement.loc['Total Cash From Operating Activities'].iloc[0]
     growth_rate = st.slider('Growth Rate (CAGR)', 0.0, 0.2, 0.05)
     discount_rate = st.slider('Discount Rate', 0.0, 0.2, 0.1)
     terminal_growth_rate = st.slider('Terminal Growth Rate', 0.0, 0.1, 0.02)
@@ -78,4 +78,3 @@ if ticker:
         st.success("The stock appears to be undervalued. It might be worth investing in.")
     else:
         st.warning("The stock appears to be overvalued. Caution is advised before investing.")
-
