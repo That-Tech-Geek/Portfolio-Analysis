@@ -6,10 +6,28 @@ import numpy as np
 # Function to get financial data
 def get_financial_data(ticker):
     stock = yf.Ticker(ticker)
+    
+    # Fetch and transpose dataframes
     financials = stock.financials.T
     balance_sheet = stock.balance_sheet.T
     cashflow_statement = stock.cashflow.T
+
+    # Replace missing values with default values
+    financials = financials.fillna(0)
+    balance_sheet = balance_sheet.fillna(0)
+    cashflow_statement = cashflow_statement.fillna(0)
+    
     return financials, balance_sheet, cashflow_statement
+
+# Function to get additional data if missing
+def fetch_additional_data(ticker):
+    stock = yf.Ticker(ticker)
+    
+    # Fetch additional data
+    market_cap = stock.info.get('marketCap', 0)  # Get market cap from stock info
+    return {
+        'Market Cap': market_cap
+    }
 
 # Function for DuPont Analysis
 def dupont_analysis(financials, balance_sheet):
@@ -58,7 +76,7 @@ def dcf_analysis(financials, balance_sheet, discount_rate=0.1, terminal_growth_r
     dcf_value = sum(discounted_cash_flows) + discounted_terminal_value
     
     # Compare with current market capitalization
-    market_cap = balance_sheet.loc['Market Cap'].values[0] if 'Market Cap' in balance_sheet.index else 0
+    market_cap = balance_sheet.loc['Market Cap'].values[0] if 'Market Cap' in balance_sheet.index else fetch_additional_data(ticker)['Market Cap']
     
     return {
         'DCF Value': dcf_value,
@@ -74,20 +92,19 @@ def main():
     
     if ticker:
         try:
+            # Fetch financial data
             financials, balance_sheet, cashflow_statement = get_financial_data(ticker)
             
-            # Display and edit Income Statement
+            # Make datasets editable
             st.header(f'Financial Statements for {ticker}')
             st.subheader('Income Statement')
-            financials_editable = st.data_editor(financials.fillna(0), use_container_width=True)
+            financials_editable = st.data_editor(financials, use_container_width=True)
             
-            # Display and edit Balance Sheet
             st.subheader('Balance Sheet')
-            balance_sheet_editable = st.data_editor(balance_sheet.fillna(0), use_container_width=True)
+            balance_sheet_editable = st.data_editor(balance_sheet, use_container_width=True)
             
-            # Display and edit Cash Flow Statement
             st.subheader('Cash Flow Statement')
-            cashflow_statement_editable = st.data_editor(cashflow_statement.fillna(0), use_container_width=True)
+            cashflow_statement_editable = st.data_editor(cashflow_statement, use_container_width=True)
             
             # DuPont Analysis
             st.header(f'DuPont Analysis for {ticker}')
