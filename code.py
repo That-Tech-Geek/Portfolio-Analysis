@@ -33,45 +33,6 @@ def fetch_additional_data(ticker):
         'Market Cap': market_cap
     }
 
-# Function for DuPont Analysis
-def dupont_analysis(financials, balance_sheet):
-    try:
-        # Retrieve values from the dataframes, replacing missing data with default values
-        income_statement = financials.loc['Net Income'].values[0] if 'Net Income' in financials.index and not financials.loc['Net Income'].empty else 0
-        revenue = financials.loc['Total Revenue'].values[0] if 'Total Revenue' in financials.index and not financials.loc['Total Revenue'].empty else 0
-        total_assets = balance_sheet.loc['Total Assets'].values[0] if 'Total Assets' in balance_sheet.index and not balance_sheet.loc['Total Assets'].empty else 0
-        total_equity = balance_sheet.loc['Total Stockholder Equity'].values[0] if 'Total Stockholder Equity' in balance_sheet.index and not balance_sheet.loc['Total Stockholder Equity'].empty else 0
-
-        # Print values for debugging
-        st.write(f"Income Statement: {income_statement}")
-        st.write(f"Revenue: {revenue}")
-        st.write(f"Total Assets: {total_assets}")
-        st.write(f"Total Equity: {total_equity}")
-
-        # Avoid division by zero
-        net_profit_margin = income_statement / revenue if revenue != 0 else 0
-        asset_turnover = revenue / total_assets if total_assets != 0 else 0
-        equity_multiplier = total_assets / total_equity if total_equity != 0 else 0
-
-        # Return on Equity (ROE)
-        roe = net_profit_margin * asset_turnover * equity_multiplier
-        
-        return {
-            'Net Profit Margin': net_profit_margin,
-            'Asset Turnover': asset_turnover,
-            'Equity Multiplier': equity_multiplier,
-            'ROE': roe
-        }
-    
-    except Exception as e:
-        st.error(f"Error in DuPont Analysis: {e}")
-        return {
-            'Net Profit Margin': 0,
-            'Asset Turnover': 0,
-            'Equity Multiplier': 0,
-            'ROE': 0
-        }
-
 # Function for DCF Analysis
 def dcf_analysis(financials, balance_sheet, ticker, annual_cashflows, discount_rate=0.1, terminal_growth_rate=0.02):
     try:
@@ -95,9 +56,6 @@ def dcf_analysis(financials, balance_sheet, ticker, annual_cashflows, discount_r
         # Project future cash flows
         future_cash_flows = [free_cash_flow[-1] * ((1 + growth_rate) ** (i + 1)) for i in range(5)]
         
-        # Debug: Show future cash flows
-        st.write("Future Cash Flows:", future_cash_flows)
-        
         # Terminal value
         terminal_value = future_cash_flows[-1] * (1 + terminal_growth_rate) / (discount_rate - terminal_growth_rate)
         
@@ -111,14 +69,14 @@ def dcf_analysis(financials, balance_sheet, ticker, annual_cashflows, discount_r
         # Compare with current market capitalization
         market_cap = balance_sheet.loc['Market Cap'].values[0] if 'Market Cap' in balance_sheet.index else fetch_additional_data(ticker)['Market Cap']
         
-        # Debug: Show DCF calculation details
-        st.write(f"Discounted Cash Flows: {discounted_cash_flows}")
-        st.write(f"Discounted Terminal Value: {discounted_terminal_value}")
-        
+        # Format the results
         return {
             'DCF Value': dcf_value,
             'Market Cap': market_cap,
-            'Undervalued/Overvalued': 'Undervalued' if market_cap and dcf_value > market_cap else 'Overvalued'
+            'Undervalued/Overvalued': 'Undervalued' if market_cap and dcf_value > market_cap else 'Overvalued',
+            'Future Cash Flows': future_cash_flows,
+            'Discounted Cash Flows': discounted_cash_flows,
+            'Discounted Terminal Value': discounted_terminal_value
         }
     
     except Exception as e:
@@ -127,7 +85,7 @@ def dcf_analysis(financials, balance_sheet, ticker, annual_cashflows, discount_r
 
 # Streamlit app
 def main():
-    st.title('Investment Analysis using DuPont and DCF')
+    st.title('Investment Analysis using DCF')
     
     ticker = st.text_input('Enter the stock ticker symbol:', 'AAPL').upper()
     
@@ -147,19 +105,22 @@ def main():
             st.subheader('Cash Flow Statement')
             cashflow_statement_editable = st.data_editor(cashflow_statement, use_container_width=True)
             
-            # DuPont Analysis
-            st.header(f'DuPont Analysis for {ticker}')
-            dupont_results = dupont_analysis(financials_editable, balance_sheet_editable)
-            if dupont_results:
-                for key, value in dupont_results.items():
-                    st.write(f"{key}: {value:.2f}")
-            
             # DCF Analysis
             st.header(f'DCF Analysis for {ticker}')
             dcf_results = dcf_analysis(financials_editable, balance_sheet_editable, ticker, annual_cashflows)
             if dcf_results:
-                for key, value in dcf_results.items():
-                    st.write(f"{key}: {value:,.2f}" if isinstance(value, (int, float)) else f"{key}: {value}")
+                st.subheader('DCF Analysis Results')
+                st.write(f"**DCF Value:** ${dcf_results['DCF Value']:,.2f}")
+                st.write(f"**Market Cap:** ${dcf_results['Market Cap']:,.2f}")
+                st.write(f"**Valuation:** {dcf_results['Undervalued/Overvalued']}")
+                
+                st.subheader('Future Cash Flows')
+                st.write(pd.DataFrame({'Year': range(1, 6), 'Projected Cash Flow': dcf_results['Future Cash Flows']}))
+                
+                st.subheader('Discounted Cash Flows')
+                st.write(pd.DataFrame({'Year': range(1, 6), 'Discounted Cash Flow': dcf_results['Discounted Cash Flows']}))
+                
+                st.write(f"**Discounted Terminal Value:** ${dcf_results['Discounted Terminal Value']:,.2f}")
         
         except Exception as e:
             st.error(f"An error occurred: {e}")
