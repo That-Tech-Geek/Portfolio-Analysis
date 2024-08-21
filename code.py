@@ -89,10 +89,40 @@ def calculate_financial_ratios(ticker):
     # Only return the last 4 years of ratios
     return ratios
 
+# Function to perform DCF analysis
+def dcf_analysis(ticker):
+    financials, balance_sheet, cashflow_statement = get_financial_data(ticker)
+    
+    # Select the last 4 years of data
+    last_4_years = cashflow_statement.index[:4]
+
+    # Ensure all dataframes have the same index
+    cashflow_statement = cashflow_statement.loc[last_4_years]
+    financials = financials.loc[last_4_years]
+    
+    # Required fields for DCF Analysis
+    free_cash_flow = cashflow_statement.get('Free Cash Flow', pd.Series([np.nan] * len(last_4_years), index=last_4_years))
+    revenue = financials.get('Total Revenue', pd.Series([np.nan] * len(last_4_years), index=last_4_years))
+    discount_rate = 0.1  # Assumed discount rate for example
+    
+    # Calculate the terminal value
+    terminal_growth_rate = 0.03  # Assumed terminal growth rate for example
+    terminal_value = free_cash_flow.iloc[-1] * (1 + terminal_growth_rate) / (discount_rate - terminal_growth_rate)
+    
+    # Calculate the present value of free cash flows and terminal value
+    years = np.arange(1, len(last_4_years) + 1)
+    present_value_fcf = sum(free_cash_flow / (1 + discount_rate) ** years)
+    present_value_terminal = terminal_value / (1 + discount_rate) ** len(years)
+    
+    # Total enterprise value
+    enterprise_value = present_value_fcf + present_value_terminal
+    
+    return enterprise_value, present_value_fcf, present_value_terminal
+
 # Streamlit app
 def main():
     st.title('Comprehensive Financial Analysis')
-    st.write("Analyze a company's financial performance with a detailed set of ratios.")
+    st.write("Analyze a company's financial performance with a detailed set of ratios and DCF Analysis.")
     
     ticker = st.text_input('Enter the stock ticker symbol:', 'RELIANCE.NS').upper()
     
@@ -116,6 +146,13 @@ def main():
             st.header('Financial Ratios')
             financial_ratios = calculate_financial_ratios(ticker)
             st.dataframe(financial_ratios)
+            
+            # Perform and display DCF Analysis
+            st.header('Discounted Cash Flow (DCF) Analysis')
+            enterprise_value, present_value_fcf, present_value_terminal = dcf_analysis(ticker)
+            st.write(f"Enterprise Value: ${enterprise_value:,.2f}")
+            st.write(f"Present Value of Free Cash Flows: ${present_value_fcf:,.2f}")
+            st.write(f"Present Value of Terminal Value: ${present_value_terminal:,.2f}")
         
         except Exception as e:
             st.error(f"An error occurred: {e}")
