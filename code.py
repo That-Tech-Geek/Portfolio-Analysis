@@ -26,9 +26,10 @@ def calculate_financial_ratios(ticker):
     # Select the last 4 years of data
     last_4_years = balance_sheet.index[:4]
     
+    # Create a DataFrame to store ratios
     ratios = pd.DataFrame(index=last_4_years)
     
-    # Data fields (assume all fields exist in balance_sheet, financials, and cashflow_statement)
+    # Data fields
     current_assets = balance_sheet.get('Total Current Assets', pd.Series([np.nan]))
     current_liabilities = balance_sheet.get('Total Current Liabilities', pd.Series([np.nan]))
     total_assets = balance_sheet.get('Total Assets', pd.Series([np.nan]))
@@ -48,9 +49,8 @@ def calculate_financial_ratios(ticker):
     ebitda = financials.get('EBITDA', pd.Series([np.nan]))
     dividends_paid = cashflow_statement.get('Dividends Paid', pd.Series([np.nan]))
     capital_expenditures = cashflow_statement.get('Capital Expenditures', pd.Series([np.nan]))
-
+    
     # Calculate financial ratios
-
     # Liquidity Ratios
     ratios['Current Ratio'] = current_assets / current_liabilities
     ratios['Quick Ratio'] = (cash + short_term_investments) / current_liabilities
@@ -90,13 +90,13 @@ def calculate_financial_ratios(ticker):
     stock = yf.Ticker(ticker)
     market_price = stock.history(period='1d')['Close'].iloc[-1]
     shares_outstanding = stock.info.get('sharesOutstanding', np.nan)
-    earnings_per_share = net_income / shares_outstanding
-    book_value_per_share = total_equity / shares_outstanding
-    dividends_per_share = -dividends_paid / shares_outstanding
-    ratios['Price to Earnings Ratio (P/E)'] = market_price / earnings_per_share
-    ratios['Price to Book Ratio (P/B)'] = market_price / book_value_per_share
-    ratios['Dividend Yield'] = dividends_per_share / market_price
-    ratios['Earnings Yield'] = earnings_per_share / market_price
+    earnings_per_share = net_income / shares_outstanding if shares_outstanding != 0 else np.nan
+    book_value_per_share = total_equity / shares_outstanding if shares_outstanding != 0 else np.nan
+    dividends_per_share = -dividends_paid / shares_outstanding if shares_outstanding != 0 else np.nan
+    ratios['Price to Earnings Ratio (P/E)'] = market_price / earnings_per_share if earnings_per_share != 0 else np.nan
+    ratios['Price to Book Ratio (P/B)'] = market_price / book_value_per_share if book_value_per_share != 0 else np.nan
+    ratios['Dividend Yield'] = dividends_per_share / market_price if market_price != 0 else np.nan
+    ratios['Earnings Yield'] = earnings_per_share / market_price if market_price != 0 else np.nan
 
     # Only return the last 4 years of ratios
     return ratios.head(4)
