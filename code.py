@@ -86,17 +86,14 @@ def calculate_financial_ratios(ticker):
     ratios['Cash Flow Coverage Ratio'] = np.where(total_debt.replace(0, np.nan) != 0, (cashflow_statement.get('Operating Cash Flow', pd.Series([np.nan] * len(last_4_years), index=last_4_years)) - capital_expenditures) / total_debt, np.nan)
     ratios['Fixed Charge Coverage Ratio'] = np.where(interest_expense.replace(0, np.nan) != 0, (cashflow_statement.get('Operating Cash Flow', pd.Series([np.nan] * len(last_4_years), index=last_4_years)) - capital_expenditures) / interest_expense, np.nan)
 
-    # Only return the last 4 years of ratios
     return ratios
 
-# Function to perform DCF analysis
+# Function for DCF Analysis
 def dcf_analysis(ticker):
     financials, balance_sheet, cashflow_statement = get_financial_data(ticker)
     
     # Select the last 4 years of data
-    last_4_years = cashflow_statement.index[:4]
-
-    # Ensure all dataframes have the same index
+    last_4_years = balance_sheet.index[:4]
     cashflow_statement = cashflow_statement.loc[last_4_years]
     financials = financials.loc[last_4_years]
     
@@ -118,6 +115,12 @@ def dcf_analysis(ticker):
     enterprise_value = present_value_fcf + present_value_terminal
     
     return enterprise_value, present_value_fcf, present_value_terminal
+
+# Function to fetch market capitalization
+def get_market_cap(ticker):
+    stock = yf.Ticker(ticker)
+    market_cap = stock.info.get('marketCap', np.nan)
+    return market_cap
 
 # Streamlit app
 def main():
@@ -153,6 +156,20 @@ def main():
             st.write(f"Enterprise Value: ${enterprise_value:,.2f}")
             st.write(f"Present Value of Free Cash Flows: ${present_value_fcf:,.2f}")
             st.write(f"Present Value of Terminal Value: ${present_value_terminal:,.2f}")
+            
+            # Fetch and display Market Capitalization
+            st.header('Valuation Comparison')
+            market_cap = get_market_cap(ticker)
+            st.write(f"Market Capitalization: ${market_cap:,.2f}")
+            
+            # Compare Market Cap with Enterprise Value
+            if market_cap and enterprise_value:
+                if market_cap > enterprise_value:
+                    st.write("The company is potentially overvalued compared to its enterprise value.")
+                elif market_cap < enterprise_value:
+                    st.write("The company is potentially undervalued compared to its enterprise value.")
+                else:
+                    st.write("The company's market capitalization is approximately equal to its enterprise value.")
         
         except Exception as e:
             st.error(f"An error occurred: {e}")
