@@ -62,8 +62,13 @@ def calculate_financial_ratios(ticker):
     # Convert the ratios dictionary to a DataFrame
     ratios_df = pd.DataFrame(ratios)
     
+    # Adjust the index to ensure all years are covered, even if missing
+    ratios_df.index = pd.to_datetime(ratios_df.index).year
+    all_years = pd.Series(index=range(ratios_df.index.min(), ratios_df.index.max() + 1))
+    ratios_df = ratios_df.reindex(all_years.index)
+    
     # Return the ratios for the most recent period (most recent index)
-    return ratios_df.iloc[-1:]
+    return ratios_df
 
 # Streamlit app
 def main():
