@@ -52,52 +52,53 @@ def calculate_financial_ratios(ticker):
     capital_expenditures = cashflow_statement.get('Capital Expenditures', pd.Series([np.nan] * len(last_4_years), index=last_4_years))
 
     # Calculate financial ratios
+
     # Liquidity Ratios
-    ratios['Current Ratio'] = current_assets / current_liabilities.replace(0, np.nan)
-    ratios['Quick Ratio'] = (cash + short_term_investments) / current_liabilities.replace(0, np.nan)
-    ratios['Cash Ratio'] = cash / current_liabilities.replace(0, np.nan)
+    ratios['Current Ratio'] = np.where(current_liabilities != 0, current_assets / current_liabilities, np.nan)
+    ratios['Quick Ratio'] = np.where(current_liabilities != 0, (cash + short_term_investments) / current_liabilities, np.nan)
+    ratios['Cash Ratio'] = np.where(current_liabilities != 0, cash / current_liabilities, np.nan)
 
     # Leverage Ratios
-    ratios['Debt to Equity Ratio'] = total_debt / total_equity.replace(0, np.nan)
-    ratios['Debt to Assets Ratio'] = total_debt / total_assets.replace(0, np.nan)
-    ratios['Equity Ratio'] = total_equity / total_assets.replace(0, np.nan)
-    ratios['Financial Leverage Ratio'] = total_assets / total_equity.replace(0, np.nan)
-    ratios['Interest Coverage Ratio'] = ebit / interest_expense.replace(0, np.nan)
+    ratios['Debt to Equity Ratio'] = np.where(total_equity != 0, total_debt / total_equity, np.nan)
+    ratios['Debt to Assets Ratio'] = np.where(total_assets != 0, total_debt / total_assets, np.nan)
+    ratios['Equity Ratio'] = np.where(total_assets != 0, total_equity / total_assets, np.nan)
+    ratios['Financial Leverage Ratio'] = np.where(total_equity != 0, total_assets / total_equity, np.nan)
+    ratios['Interest Coverage Ratio'] = np.where(interest_expense != 0, ebit / interest_expense, np.nan)
 
     # Profitability Ratios
-    ratios['Gross Profit Margin'] = gross_profit / revenue.replace(0, np.nan)
-    ratios['Operating Profit Margin'] = ebit / revenue.replace(0, np.nan)
-    ratios['Net Profit Margin'] = net_income / revenue.replace(0, np.nan)
-    ratios['Return on Assets (ROA)'] = net_income / total_assets.replace(0, np.nan)
-    ratios['Return on Equity (ROE)'] = net_income / total_equity.replace(0, np.nan)
-    ratios['Return on Capital Employed (ROCE)'] = ebit / (total_assets - current_liabilities).replace(0, np.nan)
+    ratios['Gross Profit Margin'] = np.where(revenue != 0, gross_profit / revenue, np.nan)
+    ratios['Operating Profit Margin'] = np.where(revenue != 0, ebit / revenue, np.nan)
+    ratios['Net Profit Margin'] = np.where(revenue != 0, net_income / revenue, np.nan)
+    ratios['Return on Assets (ROA)'] = np.where(total_assets != 0, net_income / total_assets, np.nan)
+    ratios['Return on Equity (ROE)'] = np.where(total_equity != 0, net_income / total_equity, np.nan)
+    ratios['Return on Capital Employed (ROCE)'] = np.where((total_assets - current_liabilities) != 0, ebit / (total_assets - current_liabilities), np.nan)
 
     # Efficiency Ratios
-    ratios['Asset Turnover Ratio'] = revenue / total_assets.replace(0, np.nan)
-    ratios['Inventory Turnover Ratio'] = cogs / balance_sheet.get('Inventory', pd.Series([np.nan] * len(last_4_years), index=last_4_years)).replace(0, np.nan)
-    ratios['Receivables Turnover Ratio'] = revenue / balance_sheet.get('Net Receivables', pd.Series([np.nan] * len(last_4_years), index=last_4_years)).replace(0, np.nan)
-    ratios['Payables Turnover Ratio'] = cogs / balance_sheet.get('Accounts Payable', pd.Series([np.nan] * len(last_4_years), index=last_4_years)).replace(0, np.nan)
-    ratios['Working Capital Turnover Ratio'] = revenue / (current_assets - current_liabilities).replace(0, np.nan)
+    ratios['Asset Turnover Ratio'] = np.where(total_assets != 0, revenue / total_assets, np.nan)
+    ratios['Inventory Turnover Ratio'] = np.where(balance_sheet.get('Inventory', pd.Series([np.nan] * len(last_4_years), index=last_4_years)).replace(0, np.nan) != 0, cogs / balance_sheet.get('Inventory', pd.Series([np.nan] * len(last_4_years), index=last_4_years)), np.nan)
+    ratios['Receivables Turnover Ratio'] = np.where(balance_sheet.get('Net Receivables', pd.Series([np.nan] * len(last_4_years), index=last_4_years)).replace(0, np.nan) != 0, revenue / balance_sheet.get('Net Receivables', pd.Series([np.nan] * len(last_4_years), index=last_4_years)), np.nan)
+    ratios['Payables Turnover Ratio'] = np.where(balance_sheet.get('Accounts Payable', pd.Series([np.nan] * len(last_4_years), index=last_4_years)).replace(0, np.nan) != 0, cogs / balance_sheet.get('Accounts Payable', pd.Series([np.nan] * len(last_4_years), index=last_4_years)), np.nan)
+    ratios['Working Capital Turnover Ratio'] = np.where((current_assets - current_liabilities).replace(0, np.nan) != 0, revenue / (current_assets - current_liabilities), np.nan)
 
     # Dividend Ratios
-    ratios['Dividend Payout Ratio'] = -dividends_paid / net_income.replace(0, np.nan)
-    ratios['Retention Ratio'] = retained_earnings / net_income.replace(0, np.nan)
+    ratios['Dividend Payout Ratio'] = np.where(net_income.replace(0, np.nan) != 0, -dividends_paid / net_income, np.nan)
+    ratios['Retention Ratio'] = np.where(net_income.replace(0, np.nan) != 0, retained_earnings / net_income, np.nan)
 
     # Coverage Ratios
-    ratios['Cash Flow Coverage Ratio'] = (cashflow_statement.get('Operating Cash Flow', pd.Series([np.nan] * len(last_4_years), index=last_4_years)) - capital_expenditures) / total_debt.replace(0, np.nan)
-    ratios['Fixed Charge Coverage Ratio'] = (ebit + interest_expense) / (interest_expense + dividends_paid).replace(0, np.nan)
+    ratios['Cash Flow Coverage Ratio'] = np.where(total_debt.replace(0, np.nan) != 0, (cashflow_statement.get('Operating Cash Flow', pd.Series([np.nan] * len(last_4_years), index=last_4_years)) - capital_expenditures) / total_debt, np.nan)
+    ratios['Fixed Charge Coverage Ratio'] = np.where((interest_expense + dividends_paid).replace(0, np.nan) != 0, (ebit + interest_expense) / (interest_expense + dividends_paid), np.nan)
 
     # Valuation Ratios
     stock = yf.Ticker(ticker)
     market_price = stock.history(period='1d')['Close'].iloc[-1]
     shares_outstanding = stock.info.get('sharesOutstanding', np.nan)
-    earnings_per_share = net_income / shares_outstanding if shares_outstanding and shares_outstanding != 0 else np.nan
-    book_value_per_share = total_equity / shares_outstanding if shares_outstanding and shares_outstanding != 0 else np.nan
-    dividends_per_share = -dividends_paid / shares_outstanding if shares_outstanding and shares_outstanding != 0 else np.nan
-    ratios['Price to Earnings Ratio (P/E)'] = market_price / earnings_per_share if earnings_per_share and earnings_per_share != 0 else np.nan
-    ratios['Price to Book Ratio (P/B)'] = market_price / book_value_per_share if book_value_per_share and book_value_per_share != 0 else np.nan
-    ratios['Dividend Yield'] = dividends_per_share / market_price if market_price and market_price != 0 else np.nan
-    ratios['Earnings Yield'] = earnings_per_share / market_price if market_price and market_price != 0 else np.nan
+    earnings_per_share = np.where(shares_outstanding != 0, net_income / shares_outstanding, np.nan)
+    book_value_per_share = np.where(shares_outstanding != 0, total_equity / shares_outstanding, np.nan)
+    dividends_per_share = np.where(shares_outstanding != 0, -dividends_paid / shares_outstanding, np.nan)
+    ratios['Price to Earnings Ratio (P/E)'] = np.where(earnings_per_share.replace(0, np.nan) != 0, market_price / earnings_per_share, np.nan)
+    ratios['Price to Book Ratio (P/B)'] = np.where(book_value_per_share.replace(0, np.nan) != 0, market_price / book_value_per_share, np.nan)
+    ratios['Dividend Yield'] = np.where(market_price != 0, dividends_per_share / market_price, np.nan)
+    ratios['Earnings Yield'] = np.where(market_price != 0, earnings_per_share / market_price, np.nan)
 
     # Only return the last 4 years of ratios
     return ratios.head(4)
