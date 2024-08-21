@@ -32,34 +32,38 @@ def calculate_financial_ratios(ticker):
     ratios = {}
 
     # Directly source necessary data
-    current_assets = balance_sheet.get('Total Current Assets', 0)
-    current_liabilities = balance_sheet.get('Total Current Liabilities', 0)
-    cash = balance_sheet.get('Cash', 0) + balance_sheet.get('Cash And Cash Equivalents', 0)
-    short_term_investments = balance_sheet.get('Short Term Investments', 0)
-    total_debt = balance_sheet.get('Total Debt', 0)
-    total_equity = balance_sheet.get('Total Stockholder Equity', 0)
-    net_income = financials.get('Net Income', 0)
-    total_assets = balance_sheet.get('Total Assets', 0)
+    current_assets = balance_sheet.get('Total Current Assets', pd.Series([np.nan]))
+    current_liabilities = balance_sheet.get('Total Current Liabilities', pd.Series([np.nan]))
+    cash = balance_sheet.get('Cash', pd.Series([np.nan])) + balance_sheet.get('Cash And Cash Equivalents', pd.Series([np.nan]))
+    short_term_investments = balance_sheet.get('Short Term Investments', pd.Series([np.nan]))
+    total_debt = balance_sheet.get('Total Debt', pd.Series([np.nan]))
+    total_equity = balance_sheet.get('Total Stockholder Equity', pd.Series([np.nan]))
+    net_income = financials.get('Net Income', pd.Series([np.nan]))
+    total_assets = balance_sheet.get('Total Assets', pd.Series([np.nan]))
     
     # Calculate Current Ratio
-    ratios['Current Ratio'] = current_assets / current_liabilities if current_liabilities != 0 else np.nan
+    ratios['Current Ratio'] = current_assets / current_liabilities
     
     # Calculate Quick Ratio
     quick_assets = cash + short_term_investments
-    ratios['Quick Ratio'] = quick_assets / current_liabilities if current_liabilities != 0 else np.nan
+    ratios['Quick Ratio'] = quick_assets / current_liabilities
     
     # Calculate Debt to Equity Ratio
-    ratios['Debt to Equity Ratio'] = total_debt / total_equity if total_equity != 0 else np.nan
+    ratios['Debt to Equity Ratio'] = total_debt / total_equity
     
     # Calculate Return on Assets (ROA)
-    ratios['Return on Assets (ROA)'] = net_income / total_assets if total_assets != 0 else np.nan
+    ratios['Return on Assets (ROA)'] = net_income / total_assets
     
     # Calculate Return on Equity (ROE)
-    ratios['Return on Equity (ROE)'] = net_income / total_equity if total_equity != 0 else np.nan
+    ratios['Return on Equity (ROE)'] = net_income / total_equity
     
     # Additional ratios can be calculated here with similar checks
     
-    return pd.DataFrame(ratios, index=[0])
+    # Convert the ratios dictionary to a DataFrame
+    ratios_df = pd.DataFrame(ratios)
+    
+    # Return the ratios for the most recent period (most recent index)
+    return ratios_df.iloc[-1:]
 
 # Streamlit app
 def main():
