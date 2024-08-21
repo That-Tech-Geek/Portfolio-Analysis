@@ -34,52 +34,50 @@ def fetch_additional_data(ticker):
     }
 
 # Function to calculate financial ratios
-def calculate_ratios(financials, balance_sheet, cashflow_statement):
-    try:
-        # Calculate ratios
-        ratios = {}
-        
-        # Profitability Ratios
-        ratios['Gross Profit Margin'] = financials['Gross Profit'] / financials['Total Revenue']
-        ratios['Operating Profit Margin'] = financials['Operating Income'] / financials['Total Revenue']
-        ratios['Net Profit Margin'] = financials['Net Income'] / financials['Total Revenue']
-        
-        # Liquidity Ratios
-        ratios['Current Ratio'] = balance_sheet['Total Current Assets'] / balance_sheet['Total Current Liabilities']
-        ratios['Quick Ratio'] = (balance_sheet['Total Current Assets'] - balance_sheet['Inventory']) / balance_sheet['Total Current Liabilities']
-        ratios['Cash Ratio'] = balance_sheet['Cash'] / balance_sheet['Total Current Liabilities']
-        
-        # Leverage Ratios
-        ratios['Debt to Equity Ratio'] = balance_sheet['Total Liabilities'] / balance_sheet['Total Stockholder Equity']
-        ratios['Debt to Assets Ratio'] = balance_sheet['Total Liabilities'] / balance_sheet['Total Assets']
-        ratios['Financial Leverage Ratio'] = balance_sheet['Total Assets'] / balance_sheet['Total Stockholder Equity']
-        
-        # Efficiency Ratios
-        ratios['Total Assets Turnover Ratio'] = financials['Total Revenue'] / balance_sheet['Total Assets']
-        ratios['Inventory Turnover Ratio'] = financials['Cost Of Revenue'] / balance_sheet['Inventory']
-        
-        # Cash Flow Ratios
-        ratios['Operating Cash Flow Ratio'] = cashflow_statement['Total Cash From Operating Activities'] / balance_sheet['Total Current Liabilities']
-        ratios['Free Cash Flow to Firm'] = cashflow_statement['Total Cash From Operating Activities'] - cashflow_statement['Capital Expenditures']
-        
-        # Convert to DataFrame
-        ratios_df = pd.DataFrame(ratios)
-        
-        return ratios_df
+def calculate_financial_ratios(balance_sheet, financials):
+    ratios = {}
     
+    # Calculate Current Ratio
+    try:
+        current_assets = balance_sheet.get('Total Current Assets', 0)
+        current_liabilities = balance_sheet.get('Total Current Liabilities', 0)
+        ratios['Current Ratio'] = current_assets / current_liabilities if current_liabilities != 0 else 0
     except Exception as e:
-        st.error(f"Error calculating ratios: {e}")
-        return pd.DataFrame()
+        st.error(f"Error calculating Current Ratio: {e}")
+        ratios['Current Ratio'] = np.nan
+    
+    # Calculate Quick Ratio
+    try:
+        quick_assets = balance_sheet.get('Cash And Cash Equivalents', 0) + balance_sheet.get('Short Term Investments', 0)
+        ratios['Quick Ratio'] = quick_assets / current_liabilities if current_liabilities != 0 else 0
+    except Exception as e:
+        st.error(f"Error calculating Quick Ratio: {e}")
+        ratios['Quick Ratio'] = np.nan
+
+    # Calculate Debt to Equity Ratio
+    try:
+        total_debt = balance_sheet.get('Total Debt', 0)
+        total_equity = balance_sheet.get('Total Stockholder Equity', 0)
+        ratios['Debt to Equity Ratio'] = total_debt / total_equity if total_equity != 0 else 0
+    except Exception as e:
+        st.error(f"Error calculating Debt to Equity Ratio: {e}")
+        ratios['Debt to Equity Ratio'] = np.nan
+
+    # Add more ratios as needed with similar error handling
+    
+    return pd.DataFrame(ratios, index=[0])
 
 # Function for DCF Analysis
 def dcf_analysis(financials, balance_sheet, ticker, annual_cashflows, discount_rate=0.1, terminal_growth_rate=0.02):
     try:
+        # Use default value 0 if data is missing
         free_cash_flow = annual_cashflows['Free Cash Flow'].values if 'Free Cash Flow' in annual_cashflows.columns else [0]
         
         if len(free_cash_flow) < 2:
             st.error("Not enough Free Cash Flow data to perform DCF analysis.")
             return None
 
+        # Calculate growth rate with error handling
         try:
             if len(free_cash_flow) > 1 and np.all(free_cash_flow[:-1] != 0):
                 growth_rate = np.mean(np.diff(free_cash_flow) / free_cash_flow[:-1])
@@ -89,15 +87,23 @@ def dcf_analysis(financials, balance_sheet, ticker, annual_cashflows, discount_r
             st.error(f"Error calculating growth rate: {e}")
             growth_rate = 0
         
+        # Project future cash flows
         future_cash_flows = [free_cash_flow[-1] * ((1 + growth_rate) ** (i + 1)) for i in range(5)]
+        
+        # Terminal value
         terminal_value = future_cash_flows[-1] * (1 + terminal_growth_rate) / (discount_rate - terminal_growth_rate)
+        
+        # Discount the future cash flows to present value
         discounted_cash_flows = [cf / (1 + discount_rate) ** (i + 1) for i, cf in enumerate(future_cash_flows)]
         discounted_terminal_value = terminal_value / (1 + discount_rate) ** len(future_cash_flows)
         
+        # Sum of discounted cash flows and terminal value
         dcf_value = sum(discounted_cash_flows) + discounted_terminal_value
         
+        # Compare with current market capitalization
         market_cap = balance_sheet.loc['Market Cap'].values[0] if 'Market Cap' in balance_sheet.index else fetch_additional_data(ticker)['Market Cap']
         
+        # Format the results
         return {
             'DCF Value': dcf_value,
             'Market Cap': market_cap,
@@ -120,8 +126,10 @@ def main():
     
     if ticker:
         try:
+            # Fetch financial data
             financials, balance_sheet, cashflow_statement, annual_cashflows = get_financial_data(ticker)
             
+            # Make datasets editable
             st.header(f'Financial Statements for {ticker}')
             st.subheader('Income Statement')
             financials_editable = st.data_editor(financials, use_container_width=True)
@@ -132,11 +140,12 @@ def main():
             st.subheader('Cash Flow Statement')
             cashflow_statement_editable = st.data_editor(cashflow_statement, use_container_width=True)
             
-            st.header(f'Financial Ratios for {ticker}')
-            ratios_df = calculate_ratios(financials_editable, balance_sheet_editable, cashflow_statement_editable)
-            if not ratios_df.empty:
-                st.write(ratios_df)
+            # Calculate financial ratios
+            st.header('Financial Ratios')
+            financial_ratios = calculate_financial_ratios(balance_sheet_editable, financials_editable)
+            st.data_editor(financial_ratios, use_container_width=True)
             
+            # DCF Analysis
             st.header(f'DCF Analysis for {ticker}')
             dcf_results = dcf_analysis(financials_editable, balance_sheet_editable, ticker, annual_cashflows)
             if dcf_results:
