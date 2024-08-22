@@ -64,6 +64,8 @@ def get_profit_loss(ticker):
 
 # Streamlit UI
 st.title("Financial Analysis Dashboard")
+st.subheader("This is your one-stop solution to understanding everything you'd want on a company!")
+st.write("Note: This program is built for educational/research services and is not to be held liable for any ")
 
 # Input for ticker symbol
 ticker = st.text_input("Enter the ticker symbol:", "AAPL")
