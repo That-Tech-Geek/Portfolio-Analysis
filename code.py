@@ -12,32 +12,40 @@ def calculate_returns(data):
 
 # Function to fetch key metrics (using financials and key statistics)
 def get_key_metrics(ticker):
-    # Fetching financial data
     stock = yf.Ticker(ticker)
     financials = stock.financials.transpose()
     balance_sheet = stock.balance_sheet.transpose()
     cashflow = stock.cashflow.transpose()
     info = stock.info
-    
-    # Example of ratios (extend this with your specific ratios)
+
+    # Safely calculate metrics with default values if data is missing
     metrics = {
-        'Market Cap': info['marketCap'],
+        'Market Cap': info.get('marketCap', np.nan),
         'P/E Ratio': info.get('trailingPE', np.nan),
         'P/B Ratio': info.get('priceToBook', np.nan),
         'EV/EBITDA': info.get('enterpriseToEbitda', np.nan),
-        'Current Ratio': balance_sheet['Total Current Assets'] / balance_sheet['Total Current Liabilities'],
-        'Quick Ratio': (balance_sheet['Total Current Assets'] - balance_sheet['Inventory']) / balance_sheet['Total Current Liabilities'],
-        'Debt to Equity Ratio': balance_sheet['Total Debt'] / balance_sheet['Total Stockholder Equity'],
+        'Current Ratio': (balance_sheet['Total Current Assets'] / balance_sheet['Total Current Liabilities']) 
+                        if 'Total Current Assets' in balance_sheet and 'Total Current Liabilities' in balance_sheet else np.nan,
+        'Quick Ratio': ((balance_sheet['Total Current Assets'] - balance_sheet['Inventory']) / balance_sheet['Total Current Liabilities']) 
+                       if 'Total Current Assets' in balance_sheet and 'Inventory' in balance_sheet and 'Total Current Liabilities' in balance_sheet else np.nan,
+        'Debt to Equity Ratio': (balance_sheet['Total Debt'] / balance_sheet['Total Stockholder Equity']) 
+                                if 'Total Debt' in balance_sheet and 'Total Stockholder Equity' in balance_sheet else np.nan,
         'Return on Equity (ROE)': info.get('returnOnEquity', np.nan),
-        'Gross Margin': financials['Gross Profit'] / financials['Total Revenue'],
-        'Operating Margin': financials['Operating Income'] / financials['Total Revenue'],
-        'Net Profit Margin': financials['Net Income'] / financials['Total Revenue'],
+        'Gross Margin': (financials['Gross Profit'] / financials['Total Revenue']) 
+                        if 'Gross Profit' in financials and 'Total Revenue' in financials else np.nan,
+        'Operating Margin': (financials['Operating Income'] / financials['Total Revenue']) 
+                            if 'Operating Income' in financials and 'Total Revenue' in financials else np.nan,
+        'Net Profit Margin': (financials['Net Income'] / financials['Total Revenue']) 
+                             if 'Net Income' in financials and 'Total Revenue' in financials else np.nan,
         'Return on Assets (ROA)': info.get('returnOnAssets', np.nan),
         'Dividend Yield': info.get('dividendYield', np.nan),
-        'Free Cash Flow': cashflow['Free Cash Flow'],
+        'Free Cash Flow': cashflow.get('Free Cash Flow', np.nan),
         'Payout Ratio': info.get('payoutRatio', np.nan),
         'EPS': info.get('trailingEps', np.nan),
     }
+
+    metrics_df = pd.DataFrame.from_dict(metrics, orient='index', columns=[ticker])
+    return metrics_df
     
     # Convert metrics to DataFrame
     metrics_df = pd.DataFrame.from_dict(metrics, orient='index', columns=[ticker])
