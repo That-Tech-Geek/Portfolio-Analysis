@@ -1,4 +1,3 @@
-
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -6,9 +5,9 @@ import streamlit as st
 
 # Function to calculate returns
 def calculate_returns(data):
-    daily_return = data['Adj Close'].pct_change().dropna()
-    weekly_return = data['Adj Close'].resample('W').ffill().pct_change().dropna()
-    monthly_return = data['Adj Close'].resample('M').ffill().pct_change().dropna()
+    daily_return = data['Adj Close'].pct_change().dropna().rename("Daily Return")
+    weekly_return = data['Adj Close'].resample('W').ffill().pct_change().dropna().rename("Weekly Return")
+    monthly_return = data['Adj Close'].resample('M').ffill().pct_change().dropna().rename("Monthly Return")
     return daily_return, weekly_return, monthly_return
 
 # Function to fetch key metrics (using financials and key statistics)
@@ -18,7 +17,7 @@ def get_key_metrics(ticker):
     balance_sheet = stock.balance_sheet.transpose()
     cashflow = stock.cashflow.transpose()
     info = stock.info
-
+    
     # Safely calculate metrics with default values if data is missing
     metrics = {
         'Market Cap': info.get('marketCap', np.nan),
@@ -44,11 +43,7 @@ def get_key_metrics(ticker):
         'Payout Ratio': info.get('payoutRatio', np.nan),
         'EPS': info.get('trailingEps', np.nan),
     }
-
-    metrics_df = pd.DataFrame.from_dict(metrics, orient='index', columns=[ticker])
-    return metrics_df
     
-    # Convert metrics to DataFrame
     metrics_df = pd.DataFrame.from_dict(metrics, orient='index', columns=[ticker])
     
     return metrics_df
@@ -58,12 +53,18 @@ def get_profit_loss(ticker):
     stock = yf.Ticker(ticker)
     return stock.financials.transpose()
 
+# Function to fetch peers
+def get_peers(ticker):
+    stock = yf.Ticker(ticker)
+    return stock.get_info().get('symbol', [])
+
 # Function to perform peer comparison
-def peer_comparison(ticker, peers):
+def peer_comparison(ticker):
+    peers = get_peers(ticker)
     metrics = {}
     for peer in peers:
         metrics[peer] = get_key_metrics(peer)
-    return pd.concat(metrics.values(), axis=1)
+    return pd.concat(metrics.values(), axis=1) if metrics else pd.DataFrame()
 
 # Streamlit UI
 st.title("Financial Analysis Dashboard")
@@ -72,26 +73,37 @@ st.title("Financial Analysis Dashboard")
 ticker = st.text_input("Enter the ticker symbol:", "AAPL")
 
 # Fetching data from yfinance
-data = yf.download(ticker, period='max', progress = False)
+data = yf.download(ticker, period='5y', progress=False)
+
+# Calculate additional stock data
+data['50-Day Moving Avg'] = data['Adj Close'].rolling(window=50).mean()
+data['200-Day Moving Avg'] = data['Adj Close'].rolling(window=200).mean()
+data['Daily Volume'] = data['Volume']
+
+# Calculate returns
 daily_return, weekly_return, monthly_return = calculate_returns(data)
+
+# Fetch key metrics and profit & loss statement
 metrics_df = get_key_metrics(ticker)
 profit_loss_df = get_profit_loss(ticker)
 
-# Displaying the data
-st.header(f"Returns for {ticker}")
-st.write("Daily Returns", daily_return)
-st.write("Weekly Returns", weekly_return)
-st.write("Monthly Returns", monthly_return)
+# Combine all data into one dataset
+combined_df = pd.DataFrame(index=data.index)
+combined_df = combined_df.join(data[['Adj Close', 'Daily Volume', '50-Day Moving Avg', '200-Day Moving Avg']], how='outer')
+combined_df = combined_df.join(daily_return, how='outer')
+combined_df = combined_df.join(weekly_return, how='outer')
+combined_df = combined_df.join(monthly_return, how='outer')
+combined_df = pd.concat([combined_df, metrics_df.T], axis=1)
+combined_df = pd.concat([combined_df, profit_loss_df], axis=1)
 
-st.header(f"Key Metrics for {ticker}")
-st.write(metrics_df)
-
-st.header(f"Profit and Loss Statement for {ticker}")
-st.write(profit_loss_df)
+# Displaying the combined data
+st.header(f"Combined Financial Data for {ticker}")
+st.write(combined_df)
 
 # Peer Comparison
-peers = st.text_input("Enter peer ticker symbols separated by commas:", "MSFT,GOOGL,AMZN").split(',')
-peer_comparison_df = peer_comparison(ticker, peers)
-
-st.header(f"Peer Comparison of {ticker} with {', '.join(peers)}")
-st.write(peer_comparison_df)
+st.header(f"Peer Comparison for {ticker}")
+peer_comparison_df = peer_comparison(ticker)
+if peer_comparison_df.empty:
+    st.write("No peers found or no data available for peers.")
+else:
+    st.write(peer_comparison_df)
