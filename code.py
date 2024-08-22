@@ -63,7 +63,7 @@ st.title("Financial Analysis Dashboard")
 ticker = st.text_input("Enter the ticker symbol:", "AAPL")
 
 # Fetching data from yfinance
-data = yf.download(ticker, period='5y')
+data = yf.download(ticker, period='max', progress = False)
 daily_return, weekly_return, monthly_return = calculate_returns(data)
 metrics_df = get_key_metrics(ticker)
 profit_loss_df = get_profit_loss(ticker)
