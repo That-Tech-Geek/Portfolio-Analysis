@@ -1,14 +1,22 @@
 import yfinance as yf
 import pandas as pd
-import numpy as np
 import streamlit as st
+import plotly.graph_objs as go
 
-# Function to calculate returns
-def calculate_returns(data):
-    daily_return = data['Adj Close'].pct_change().dropna().rename("Daily Return")
-    weekly_return = data['Adj Close'].resample('W').ffill().pct_change().dropna().rename("Weekly Return")
-    monthly_return = data['Adj Close'].resample('M').ffill().pct_change().dropna().rename("Monthly Return")
-    return daily_return, weekly_return, monthly_return
+# Function to fetch stock data and calculate returns
+def get_stock_data(ticker):
+    data = yf.download(ticker, period='5y', progress=False)
+    
+    # Calculate additional stock data
+    data['50-Day Moving Avg'] = data['Adj Close'].rolling(window=50).mean()
+    data['200-Day Moving Avg'] = data['Adj Close'].rolling(window=200).mean()
+    
+    # Calculate returns
+    data['Daily Return'] = data['Adj Close'].pct_change().dropna()
+    data['Weekly Return'] = data['Adj Close'].resample('W').ffill().pct_change().dropna()
+    data['Monthly Return'] = data['Adj Close'].resample('M').ffill().pct_change().dropna()
+    
+    return data
 
 # Function to fetch key metrics (using financials and key statistics)
 def get_key_metrics(ticker):
@@ -53,57 +61,41 @@ def get_profit_loss(ticker):
     stock = yf.Ticker(ticker)
     return stock.financials.transpose()
 
-# Function to fetch peers
-def get_peers(ticker):
-    stock = yf.Ticker(ticker)
-    return stock.get_info().get('symbol', [])
-
-# Function to perform peer comparison
-def peer_comparison(ticker):
-    peers = get_peers(ticker)
-    metrics = {}
-    for peer in peers:
-        metrics[peer] = get_key_metrics(peer)
-    return pd.concat(metrics.values(), axis=1) if metrics else pd.DataFrame()
-
 # Streamlit UI
 st.title("Financial Analysis Dashboard")
 
 # Input for ticker symbol
 ticker = st.text_input("Enter the ticker symbol:", "AAPL")
 
-# Fetching data from yfinance
-data = yf.download(ticker, period='5y', progress=False)
-
-# Calculate additional stock data
-data['50-Day Moving Avg'] = data['Adj Close'].rolling(window=50).mean()
-data['200-Day Moving Avg'] = data['Adj Close'].rolling(window=200).mean()
-data['Daily Volume'] = data['Volume']
-
-# Calculate returns
-daily_return, weekly_return, monthly_return = calculate_returns(data)
-
-# Fetch key metrics and profit & loss statement
+# Fetching data
+stock_data = get_stock_data(ticker)
 metrics_df = get_key_metrics(ticker)
 profit_loss_df = get_profit_loss(ticker)
 
-# Combine all data into one dataset
-combined_df = pd.DataFrame(index=data.index)
-combined_df = combined_df.join(data[['Adj Close', 'Daily Volume', '50-Day Moving Avg', '200-Day Moving Avg']], how='outer')
-combined_df = combined_df.join(daily_return, how='outer')
-combined_df = combined_df.join(weekly_return, how='outer')
-combined_df = combined_df.join(monthly_return, how='outer')
-combined_df = pd.concat([combined_df, metrics_df.T], axis=1)
-combined_df = pd.concat([combined_df, profit_loss_df], axis=1)
+# Displaying the stock data
+st.header(f"Stock Data for {ticker}")
+st.write(stock_data)
 
-# Displaying the combined data
-st.header(f"Combined Financial Data for {ticker}")
-st.write(combined_df)
+# Plotting Stock Data with Plotly
+st.subheader(f"{ticker} Stock Price and Moving Averages")
+stock_fig = go.Figure()
+stock_fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['Adj Close'], mode='lines', name='Adjusted Close'))
+stock_fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['50-Day Moving Avg'], mode='lines', name='50-Day Moving Avg'))
+stock_fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['200-Day Moving Avg'], mode='lines', name='200-Day Moving Avg'))
+stock_fig.update_layout(title=f'{ticker} Stock Price and Moving Averages', xaxis_title='Date', yaxis_title='Price')
+st.plotly_chart(stock_fig)
 
-# Peer Comparison
-st.header(f"Peer Comparison for {ticker}")
-peer_comparison_df = peer_comparison(ticker)
-if peer_comparison_df.empty:
-    st.write("No peers found or no data available for peers.")
-else:
-    st.write(peer_comparison_df)
+# Displaying and plotting annual statement data
+st.header(f"Annual Statement Data for {ticker}")
+st.write(profit_loss_df)
+
+st.subheader(f"{ticker} Profit and Loss Over Time")
+pl_fig = go.Figure()
+for column in profit_loss_df.columns:
+    pl_fig.add_trace(go.Scatter(x=profit_loss_df.index, y=profit_loss_df[column], mode='lines', name=column))
+pl_fig.update_layout(title=f'{ticker} Profit and Loss Over Time', xaxis_title='Date', yaxis_title='Amount (in $)')
+st.plotly_chart(pl_fig)
+
+# Displaying key metrics
+st.header(f"Key Metrics for {ticker}")
+st.write(metrics_df)
