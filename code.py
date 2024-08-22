@@ -6,7 +6,7 @@ import numpy as np
 
 # Function to fetch stock data and calculate returns
 def get_stock_data(ticker):
-    data = yf.download(ticker, period='5y', progress=False)
+    data = yf.download(ticker, period='max', progress=False)
     
     # Calculate additional stock data
     data['50-Day Moving Avg'] = data['Adj Close'].rolling(window=50).mean()
