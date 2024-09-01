@@ -88,6 +88,15 @@ stock_fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['200-Day Moving 
 stock_fig.update_layout(title=f'{ticker} Stock Price and Moving Averages', xaxis_title='Date', yaxis_title='Price')
 st.plotly_chart(stock_fig)
 
+# Plotting Returns
+st.subheader(f"{ticker} Returns")
+returns_fig = go.Figure()
+returns_fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['Daily Return'], mode='lines', name='Daily Return'))
+returns_fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['Weekly Return'], mode='lines', name='Weekly Return'))
+returns_fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['Monthly Return'], mode='lines', name='Monthly Return'))
+returns_fig.update_layout(title=f'{ticker} Returns', xaxis_title='Date', yaxis_title='Return')
+st.plotly_chart(returns_fig)
+
 # Displaying and plotting annual statement data
 st.header(f"Annual Statement Data for {ticker}")
 st.write(profit_loss_df)
