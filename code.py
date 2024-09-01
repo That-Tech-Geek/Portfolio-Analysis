@@ -111,7 +111,19 @@ st.plotly_chart(returns_fig)
 
 # Correlation Heatmaps
 def plot_correlation_heatmap(df, title):
-    corr = df.corr()
+    # Drop non-numeric columns
+    numeric_df = df.select_dtypes(include=[np.number])
+    
+    # Drop rows with all NaN values
+    numeric_df = numeric_df.dropna(how='all')
+    
+    # Fill NaN values with a method of your choice (e.g., forward fill or zero)
+    numeric_df = numeric_df.fillna(0)
+
+    # Calculate the correlation matrix
+    corr = numeric_df.corr()
+
+    # Create heatmap
     heatmap_fig = px.imshow(corr, text_auto=True, color_continuous_scale='Viridis', aspect='auto')
     heatmap_fig.update_layout(title=title, xaxis_title='Variables', yaxis_title='Variables')
     return heatmap_fig
