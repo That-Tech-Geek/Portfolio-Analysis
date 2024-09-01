@@ -12,20 +12,24 @@ def get_stock_data(ticker):
     data['50-Day Moving Avg'] = data['Adj Close'].rolling(window=50).mean()
     data['200-Day Moving Avg'] = data['Adj Close'].rolling(window=200).mean()
     
-    # Calculate returns
-    data['Daily Return'] = data['Adj Close'].pct_change().dropna()
+    # Calculate daily returns
+    data['Daily Return'] = data['Adj Close'].pct_change()
     
-    # Weekly returns calculation
+    # Calculate weekly returns
     weekly_data = data.resample('W').agg({'Open': 'first', 'Close': 'last'})
     weekly_data['Weekly Return'] = (weekly_data['Close'] / weekly_data['Open']) - 1
-    weekly_data = weekly_data.dropna()
+    weekly_data = weekly_data.rename(columns={'Open': 'Weekly Open', 'Close': 'Weekly Close'})
     
-    # Monthly returns calculation
+    # Calculate monthly returns
     monthly_data = data.resample('M').agg({'Open': 'first', 'Close': 'last'})
     monthly_data['Monthly Return'] = (monthly_data['Close'] / monthly_data['Open']) - 1
-    monthly_data = monthly_data.dropna()
+    monthly_data = monthly_data.rename(columns={'Open': 'Monthly Open', 'Close': 'Monthly Close'})
     
-    return data, weekly_data, monthly_data
+    # Merge weekly and monthly returns back into the original dataset
+    data = data.join(weekly_data[['Weekly Return']], how='left')
+    data = data.join(monthly_data[['Monthly Return']], how='left')
+    
+    return data
 
 # Function to fetch key metrics (using financials and key statistics)
 def get_key_metrics(ticker):
@@ -79,7 +83,7 @@ st.write("Note: This program is built for educational/research services and is n
 ticker = st.text_input("Enter the ticker symbol:", "AAPL")
 
 # Fetching data
-stock_data, weekly_data, monthly_data = get_stock_data(ticker)
+stock_data = get_stock_data(ticker)
 metrics_df = get_key_metrics(ticker)
 profit_loss_df = get_profit_loss(ticker)
 
@@ -99,8 +103,8 @@ st.plotly_chart(stock_fig)
 # Plotting Returns
 st.subheader(f"{ticker} Returns")
 returns_fig = go.Figure()
-returns_fig.add_trace(go.Scatter(x=weekly_data.index, y=weekly_data['Weekly Return'], mode='lines', name='Weekly Return'))
-returns_fig.add_trace(go.Scatter(x=monthly_data.index, y=monthly_data['Monthly Return'], mode='lines', name='Monthly Return'))
+returns_fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['Weekly Return'], mode='lines', name='Weekly Return'))
+returns_fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['Monthly Return'], mode='lines', name='Monthly Return'))
 returns_fig.update_layout(title=f'{ticker} Returns', xaxis_title='Date', yaxis_title='Return')
 st.plotly_chart(returns_fig)
 
