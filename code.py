@@ -14,10 +14,18 @@ def get_stock_data(ticker):
     
     # Calculate returns
     data['Daily Return'] = data['Adj Close'].pct_change().dropna()
-    data['Weekly Return'] = data['Adj Close'].resample('W').ffill().pct_change().dropna()
-    data['Monthly Return'] = data['Adj Close'].resample('M').ffill().pct_change().dropna()
     
-    return data
+    # Weekly returns calculation
+    weekly_data = data.resample('W').agg({'Open': 'first', 'Close': 'last'})
+    weekly_data['Weekly Return'] = (weekly_data['Close'] / weekly_data['Open']) - 1
+    weekly_data = weekly_data.dropna()
+    
+    # Monthly returns calculation
+    monthly_data = data.resample('M').agg({'Open': 'first', 'Close': 'last'})
+    monthly_data['Monthly Return'] = (monthly_data['Close'] / monthly_data['Open']) - 1
+    monthly_data = monthly_data.dropna()
+    
+    return data, weekly_data, monthly_data
 
 # Function to fetch key metrics (using financials and key statistics)
 def get_key_metrics(ticker):
@@ -71,7 +79,7 @@ st.write("Note: This program is built for educational/research services and is n
 ticker = st.text_input("Enter the ticker symbol:", "AAPL")
 
 # Fetching data
-stock_data = get_stock_data(ticker)
+stock_data, weekly_data, monthly_data = get_stock_data(ticker)
 metrics_df = get_key_metrics(ticker)
 profit_loss_df = get_profit_loss(ticker)
 
@@ -91,9 +99,8 @@ st.plotly_chart(stock_fig)
 # Plotting Returns
 st.subheader(f"{ticker} Returns")
 returns_fig = go.Figure()
-returns_fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['Daily Return'], mode='lines', name='Daily Return'))
-returns_fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['Weekly Return'], mode='lines', name='Weekly Return'))
-returns_fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['Monthly Return'], mode='lines', name='Monthly Return'))
+returns_fig.add_trace(go.Scatter(x=weekly_data.index, y=weekly_data['Weekly Return'], mode='lines', name='Weekly Return'))
+returns_fig.add_trace(go.Scatter(x=monthly_data.index, y=monthly_data['Monthly Return'], mode='lines', name='Monthly Return'))
 returns_fig.update_layout(title=f'{ticker} Returns', xaxis_title='Date', yaxis_title='Return')
 st.plotly_chart(returns_fig)
 
