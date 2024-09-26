@@ -26,9 +26,13 @@ def get_stock_data(ticker):
     monthly_data['Monthly Return'] = (monthly_data['Close'] / monthly_data['Open']) - 1
     monthly_data = monthly_data.rename(columns={'Open': 'Monthly Open', 'Close': 'Monthly Close'})
     
+    # Merge weekly and monthly returns back into the original dataset
+    data = data.join(weekly_data[['Weekly Return']], how='left')
+    data = data.join(monthly_data[['Monthly Return']], how='left')
+    
     return data, weekly_data, monthly_data
 
-# Function to fetch key metrics
+# Function to fetch key metrics (using financials and key statistics)
 def get_key_metrics(ticker):
     stock = yf.Ticker(ticker)
     financials = stock.financials.transpose()
@@ -36,6 +40,7 @@ def get_key_metrics(ticker):
     cashflow = stock.cashflow.transpose()
     info = stock.info
     
+    # Safely calculate metrics with default values if data is missing
     metrics = {
         'Market Cap': info.get('marketCap', np.nan),
         'P/E Ratio': info.get('trailingPE', np.nan),
@@ -65,57 +70,29 @@ def get_key_metrics(ticker):
     
     return metrics_df
 
-# Function to simulate a portfolio
-def portfolio_simulation(portfolio, bse_500_tickers):
-    # Initialize an empty DataFrame to store portfolio data
-    portfolio_df = pd.DataFrame(columns=['Ticker', 'Shares', 'Current Price', 'Total Value'])
+# Function to fetch profit and loss statement
+def get_profit_loss(ticker):
+    stock = yf.Ticker(ticker)
+    return stock.financials.transpose()
 
-    # Simulate portfolio
-    portfolio_value = 0
-    for ticker, shares in portfolio.items():
-        if ticker in bse_500_tickers:
-            current_price = get_current_price(ticker)  # Assuming this function fetches the current price
-            total_value = shares * current_price
-            portfolio_value += total_value
-            
-            # Append the new row as a dictionary
-            new_row = pd.DataFrame({'Ticker': [ticker], 'Shares': [shares], 'Current Price': [current_price], 'Total Value': [total_value]})
-            portfolio_df = pd.concat([portfolio_df, new_row], ignore_index=True)
+# Streamlit UI
+st.title("Financial Analysis Dashboard")
+st.subheader("This is your one-stop solution to understanding everything you'd want on a company!")
+st.write("Note: This program is built for educational/research services and is not to be held liable for any losses and/or damages to the user")
 
-    return portfolio_value, portfolio_df
+# Input for ticker symbol
+ticker = st.text_input("Enter the ticker symbol:", "AAPL")
 
-# Streamlit UI for Portfolio Management
-st.title("BSE 500 Real-Time Portfolio Simulator")
-
-# List of BSE 500 tickers (for simplicity, limited to a few here, you can expand this list)
-bse_500_tickers = ['RELIANCE.BO', 'TCS.BO', 'HDFCBANK.BO', 'INFY.BO', 'HINDUNILVR.BO']
-
-# Input for portfolio management
-portfolio = {}
-for ticker in bse_500_tickers:
-    shares = st.number_input(f"Enter number of shares for {ticker}:", min_value=0, value=0)
-    if shares > 0:
-        portfolio[ticker] = shares
-
-# Simulate portfolio based on user input
-if st.button("Simulate Portfolio"):
-    portfolio_value, portfolio_df = portfolio_simulation(portfolio, bse_500_tickers)
-    st.subheader("Portfolio Summary")
-    st.write(portfolio_df)
-    st.write(f"Total Portfolio Value: ₹{portfolio_value:.2f}")
-
-# Input for individual stock analysis
-ticker = st.text_input("Enter a ticker symbol to analyze:", "RELIANCE.BO")
-
-# Fetch stock data and key metrics
+# Fetching data
 stock_data, weekly_data, monthly_data = get_stock_data(ticker)
 metrics_df = get_key_metrics(ticker)
+profit_loss_df = get_profit_loss(ticker)
 
-# Display stock data
+# Displaying the stock data
 st.header(f"Stock Data for {ticker}")
 st.write(stock_data)
 
-# Plot stock prices and moving averages
+# Plotting Stock Data with Plotly
 st.subheader(f"{ticker} Stock Price and Moving Averages")
 stock_fig = go.Figure()
 stock_fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['Adj Close'], mode='lines', name='Adjusted Close'))
@@ -124,6 +101,68 @@ stock_fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['200-Day Moving 
 stock_fig.update_layout(title=f'{ticker} Stock Price and Moving Averages', xaxis_title='Date', yaxis_title='Price')
 st.plotly_chart(stock_fig)
 
-# Display key metrics
+# Plotting Returns
+st.subheader(f"{ticker} Returns")
+returns_fig = go.Figure()
+returns_fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['Weekly Return'], mode='lines', name='Weekly Return'))
+returns_fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['Monthly Return'], mode='lines', name='Monthly Return'))
+returns_fig.update_layout(title=f'{ticker} Returns', xaxis_title='Date', yaxis_title='Return')
+st.plotly_chart(returns_fig)
+
+# Correlation Heatmaps
+def plot_correlation_heatmap(df, title):
+    # Drop non-numeric columns
+    numeric_df = df.select_dtypes(include=[np.number])
+    
+    # Drop rows with all NaN values
+    numeric_df = numeric_df.dropna(how='all')
+    
+    # Fill NaN values with a method of your choice (e.g., forward fill or zero)
+    numeric_df = numeric_df.fillna(0)
+
+    # Calculate the correlation matrix
+    corr = numeric_df.corr()
+
+    # Create heatmap
+    heatmap_fig = px.imshow(corr, text_auto=True, color_continuous_scale='Viridis', aspect='auto')
+    heatmap_fig.update_layout(title=title, xaxis_title='Variables', yaxis_title='Variables')
+    return heatmap_fig
+
+# Displaying Correlation Heatmaps
+st.header(f"Correlation Heatmaps for {ticker}")
+
+# Stock Data Correlation
+st.subheader("Correlation Heatmap of Stock Data")
+stock_corr_fig = plot_correlation_heatmap(stock_data, f'{ticker} Stock Data Correlation Heatmap')
+st.plotly_chart(stock_corr_fig)
+
+# Weekly Returns Correlation
+st.subheader("Correlation Heatmap of Weekly Returns")
+weekly_corr_fig = plot_correlation_heatmap(weekly_data, f'{ticker} Weekly Returns Correlation Heatmap')
+st.plotly_chart(weekly_corr_fig)
+
+# Monthly Returns Correlation
+st.subheader("Correlation Heatmap of Monthly Returns")
+monthly_corr_fig = plot_correlation_heatmap(monthly_data, f'{ticker} Monthly Returns Correlation Heatmap')
+st.plotly_chart(monthly_corr_fig)
+
+# Key Metrics Correlation
+st.subheader("Correlation Heatmap of Key Metrics")
+st.write(metrics_df.T)  # Transposed for better readability
+metrics_corr_fig = plot_correlation_heatmap(metrics_df.T, f'{ticker} Key Metrics Correlation Heatmap')
+st.plotly_chart(metrics_corr_fig)
+
+# Displaying and plotting annual statement data
+st.header(f"Annual Statement Data for {ticker}")
+st.write(profit_loss_df)
+
+st.subheader(f"{ticker} Profit and Loss Over Time")
+pl_fig = go.Figure()
+for column in profit_loss_df.columns:
+    pl_fig.add_trace(go.Scatter(x=profit_loss_df.index, y=profit_loss_df[column], mode='lines', name=column))
+pl_fig.update_layout(title=f'{ticker} Profit and Loss Over Time', xaxis_title='Date', yaxis_title='Amount (in $)')
+st.plotly_chart(pl_fig)
+
+# Displaying key metrics
 st.header(f"Key Metrics for {ticker}")
 st.write(metrics_df)
