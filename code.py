@@ -66,17 +66,22 @@ def get_key_metrics(ticker):
     return metrics_df
 
 # Function to simulate a portfolio
-def portfolio_simulation(portfolio, tickers):
-    portfolio_value = 0
+def portfolio_simulation(portfolio, bse_500_tickers):
+    # Initialize an empty DataFrame to store portfolio data
     portfolio_df = pd.DataFrame(columns=['Ticker', 'Shares', 'Current Price', 'Total Value'])
-    
+
+    # Simulate portfolio
+    portfolio_value = 0
     for ticker, shares in portfolio.items():
-        data = yf.download(ticker, period='1d', progress=False)
-        current_price = data['Adj Close'].iloc[-1]
-        total_value = current_price * shares
-        portfolio_value += total_value
-        portfolio_df = portfolio_df.append({'Ticker': ticker, 'Shares': shares, 'Current Price': current_price, 'Total Value': total_value}, ignore_index=True)
-    
+        if ticker in bse_500_tickers:
+            current_price = get_current_price(ticker)  # Assuming this function fetches the current price
+            total_value = shares * current_price
+            portfolio_value += total_value
+            
+            # Append the new row as a dictionary
+            new_row = pd.DataFrame({'Ticker': [ticker], 'Shares': [shares], 'Current Price': [current_price], 'Total Value': [total_value]})
+            portfolio_df = pd.concat([portfolio_df, new_row], ignore_index=True)
+
     return portfolio_value, portfolio_df
 
 # Streamlit UI for Portfolio Management
